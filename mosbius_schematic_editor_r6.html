@@ -1,0 +1,3253 @@
+<meta charset="utf-8">
+<title>MOSbius Schematic Editor</title>
+<style>
+  :root{
+    --bg:#0B0E13; --grid:#1A212A; --grid2:#232C37; --panel:#131820; --panel2:#0F141A;
+    --line:#212A34; --ink:#D3DEE8; --dim:#657483; --text:#AFBDCA;
+    --wire:#E9C84A; --junction:#E9C84A; --open:#D9534F;
+    --sel:#FF9F1C; --accent:#4FD0E3; --bad:#E0605A; --good:#57C08A;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:var(--sans);font-size:13px;overflow:hidden;user-select:none}
+  #app{display:grid;grid-template-columns:206px 1fr 274px;
+       grid-template-rows:44px 1fr 26px;height:100vh}
+  #bar{grid-column:1/4;display:flex;align-items:center;gap:6px;padding:0 12px;
+       background:var(--panel);border-bottom:1px solid var(--line);
+       overflow-x:auto;scrollbar-width:thin}
+  #bar::-webkit-scrollbar{height:5px}
+  #bar::-webkit-scrollbar-thumb{background:#2A3541;border-radius:3px}
+  .brand{font-family:var(--mono);font-size:12px;letter-spacing:.15em;
+       color:var(--accent);margin-right:12px}
+  button{font-family:var(--sans);font-size:12px;color:var(--text);background:#1A212A;
+    border:1px solid var(--line);border-radius:4px;padding:6px 11px;cursor:pointer;
+    white-space:nowrap;flex:0 0 auto}
+  button:hover{border-color:#3A4654;background:#202832}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  button.on{background:#123640;border-color:var(--accent);color:#DCF7FB}
+  button.go{background:#16301F;border-color:#2C5A3C;color:#C9E9D6}
+  .sep{width:1px;height:22px;background:var(--line);margin:0 5px;flex:0 0 auto}
+  .spacer{flex:1 0 auto}
+  aside{background:var(--panel);overflow-y:auto}
+  #left{border-right:1px solid var(--line)}
+  #right{border-left:1px solid var(--line);display:flex;flex-direction:column}
+  .ph{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--dim);
+      padding:12px 12px 5px;text-transform:uppercase}
+  .item{display:flex;justify-content:space-between;gap:8px;align-items:center;
+        padding:5px 12px;cursor:pointer;border-left:2px solid transparent;font-size:12.5px}
+  .item:hover{background:#1A212A}
+  .item.on{background:#123640;border-left-color:var(--accent);color:#DCF7FB}
+  .item .mult{font-family:var(--mono);font-size:10px;color:var(--dim)}
+  .item.on .mult{color:#7FD6E5}
+  #wrap{position:relative;overflow:hidden;background:var(--bg)}
+  svg{display:block;width:100%;height:100%}
+  #hint{position:absolute;left:14px;bottom:11px;font-family:var(--mono);font-size:11px;
+        color:var(--dim);pointer-events:none;line-height:1.7}
+  #zoom{position:absolute;right:12px;bottom:11px;font-family:var(--mono);font-size:10.5px;
+        color:var(--dim);pointer-events:none}
+  #meter{padding:12px;border-bottom:1px solid var(--line)}
+  #meter .top{display:flex;justify-content:space-between;align-items:baseline;
+    font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-bottom:8px}
+  #meter .cnt{font-size:19px;color:var(--accent)}
+  #meter .cnt.over{color:var(--bad)}
+  .slots{display:grid;grid-template-columns:repeat(10,1fr);gap:3px}
+  .slot{height:22px;border-radius:2px;background:#181F27;border:1px solid var(--line);
+    font-family:var(--mono);font-size:9px;color:var(--dim);display:flex;
+    align-items:center;justify-content:center}
+  .slot.used{background:#123640;border-color:var(--accent);color:#DCF7FB}
+  .slot.pwr{background:#2F2C18;border-color:#867628;color:#EFE0A0}
+  #nets{flex:1;overflow-y:auto}
+  .net{padding:8px 12px;border-bottom:1px solid var(--panel2);cursor:pointer}
+  .net:hover{background:#1A212A}
+  .net.hi{background:#1C242D;box-shadow:inset 2px 0 0 var(--accent)}
+  .net .r1{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .net .nm{font-family:var(--mono);font-size:11.5px;color:var(--accent)}
+  .net .nm.off{color:var(--dim)}
+  .net .mem{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:3px;
+    line-height:1.55;word-break:break-word}
+  select{font-family:var(--mono);font-size:11px;background:#1A212A;color:var(--text);
+    border:1px solid var(--line);border-radius:3px;padding:2px 4px}
+  select.unset{border-color:#59431F;color:#D6A653}
+  #drc{border-top:1px solid var(--line);padding:9px 12px;max-height:142px;overflow-y:auto}
+  .msg{font-family:var(--mono);font-size:10.5px;line-height:1.55;margin-bottom:5px;
+       padding-left:14px;position:relative}
+  .msg::before{position:absolute;left:0;top:0}
+  .msg.e{color:#F0A79C} .msg.e::before{content:"\2716";color:var(--bad)}
+  .msg.w{color:#E4CE93} .msg.w::before{content:"\26A0";color:#D6A653}
+  .msg.o{color:#9FD8B8} .msg.o::before{content:"\2713";color:var(--good)}
+  #status{grid-column:1/4;background:var(--panel2);border-top:1px solid var(--line);
+    display:flex;align-items:center;gap:15px;padding:0 12px;font-family:var(--mono);
+    font-size:10.5px;color:var(--dim)}
+  #status b{color:var(--accent);font-weight:400}
+  #modal{position:fixed;inset:0;background:rgba(5,8,11,.84);display:none;
+    align-items:center;justify-content:center;z-index:50}
+  #modal.show{display:flex}
+  #card{background:var(--panel);border:1px solid var(--line);border-radius:6px;
+    width:min(600px,90vw);max-height:80vh;display:flex;flex-direction:column}
+  #card h3{margin:0;padding:13px 16px;border-bottom:1px solid var(--line);
+    font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.08em;color:var(--accent)}
+  #out{flex:1;overflow:auto;margin:0;padding:14px 16px;font-family:var(--mono);font-size:11.5px;
+    line-height:1.6;color:#CFE3D6;white-space:pre;background:var(--panel2);user-select:text}
+  #picolog{display:none;margin:0;padding:10px 16px;font-family:var(--mono);font-size:10.5px;
+    line-height:1.5;color:#9FB3C4;white-space:pre-wrap;background:#0A0E13;
+    border-top:1px solid var(--line);max-height:190px;overflow:auto;user-select:text}
+  #picolog.on{display:block}
+  #cardfoot{padding:11px 16px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--line)}
+
+  #pmodal{position:fixed;inset:0;background:rgba(5,8,11,.84);display:none;
+    align-items:center;justify-content:center;z-index:60}
+  #pmodal.show{display:flex}
+  #pcard{background:var(--panel);border:1px solid var(--line);border-radius:6px;
+    width:min(520px,92vw);max-height:86vh;display:flex;flex-direction:column}
+  #pbody{overflow-y:auto}
+  #pcard h3{margin:0;padding:13px 16px;border-bottom:1px solid var(--line);font-family:var(--mono);
+    font-size:12px;font-weight:500;letter-spacing:.07em;color:var(--accent)}
+  #pbody{padding:12px 16px}
+  .prow{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .prow label{flex:0 0 128px;font-size:12px;color:var(--text)}
+  .prow input{flex:1;font-family:var(--mono);font-size:12px;background:#0E141A;color:var(--ink);
+    border:1px solid var(--line);border-radius:3px;padding:5px 8px;min-width:0}
+  .prow input:focus{outline:none;border-color:var(--accent)}
+  .prow .u{font-family:var(--mono);font-size:10px;color:var(--dim);flex:0 0 34px}
+
+  #tmodal{position:fixed;inset:0;background:rgba(5,8,11,.84);display:none;
+    align-items:center;justify-content:center;z-index:60}
+  #tmodal.show{display:flex}
+  #tcard{background:var(--panel);border:1px solid var(--line);border-radius:6px;width:min(460px,92vw)}
+  #tcard h3{margin:0;padding:13px 16px;border-bottom:1px solid var(--line);font-family:var(--mono);
+    font-size:12px;font-weight:500;letter-spacing:.07em;color:var(--accent)}
+  #tbody{padding:12px 16px}
+  #tText{width:100%;font-family:var(--sans);font-size:13px;background:#0E141A;color:var(--ink);
+    border:1px solid var(--line);border-radius:3px;padding:7px 9px;resize:vertical;margin-bottom:10px}
+  #tText:focus{outline:none;border-color:var(--accent)}
+  .seg{display:inline-flex;gap:0;flex:1}
+  .seg button{border-radius:0;flex:1}
+  .seg button:first-child{border-radius:4px 0 0 4px}
+  .seg button:last-child{border-radius:0 4px 4px 0}
+  .seg button+button{border-left:none}
+
+  #sim{position:fixed;inset:0;background:var(--bg);z-index:55;display:none;
+    grid-template-columns:264px 1fr;grid-template-rows:44px 1fr}
+  #sim.show{display:grid}
+  #simbar{grid-column:1/3;display:flex;align-items:center;gap:8px;padding:0 12px;
+    background:var(--panel);border-bottom:1px solid var(--line)}
+  #simstat{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+  #simsetup{background:var(--panel);border-right:1px solid var(--line);overflow-y:auto}
+  #simplot{position:relative;overflow:hidden}
+  #pl{width:100%;height:100%;cursor:crosshair}
+  #plhint{position:absolute;left:14px;bottom:10px;font-family:var(--mono);font-size:10.5px;
+    color:var(--dim);pointer-events:none}
+  .frow{display:flex;align-items:center;gap:8px;padding:3px 12px}
+  .frow label{flex:1;font-size:11.5px;color:var(--text)}
+  .frow input{width:82px;font-family:var(--mono);font-size:11px;background:#0E141A;color:var(--ink);
+    border:1px solid var(--line);border-radius:3px;padding:3px 6px}
+  .frow input:focus{outline:none;border-color:var(--accent)}
+  .frow.sw{cursor:pointer} .frow.sw:hover{background:#1A212A}
+  .chip{width:11px;height:11px;border-radius:2px;flex:0 0 11px}
+  .mline{display:flex;justify-content:space-between;padding:3px 12px;font-family:var(--mono);
+    font-size:11px}.mline span:first-child{color:var(--dim)}.mline span:last-child{color:var(--accent)}
+</style>
+
+<div id="app">
+  <div id="bar">
+    <span class="brand">MOSbius</span>
+    <button id="bSel" class="on" title="S · default mode">Select</button>
+    <button id="bWire" title="W">Wire</button>
+    <button id="bZoom" title="Z · drag a region to zoom into">Zoom</button>
+    <button id="bDel" title="Del · with nothing selected, arms the delete cursor">Delete</button>
+    <button id="bText" title="T · place a text note">Text</button>
+    <div class="sep"></div>
+    <button id="bOp" title="solve the DC operating point and annotate the sheet">Op point</button>
+    <div class="sep"></div>
+    <button id="bUndo" title="ctrl+Z">Undo</button>
+    <button id="bRedo" title="ctrl+shift+Z">Redo</button>
+    <button id="bRot" title="R / shift+R">Rotate</button>
+    <button id="bMir" title="M">Mirror</button>
+    <div class="sep"></div>
+    <button id="bFit">Fit</button>
+    <button id="bAuto">Auto-assign buses</button>
+    <button id="bClr">Clear</button>
+    <div class="sep"></div>
+    <button id="bSave" title="ctrl+S">Save</button>
+    <button id="bOpen" title="ctrl+O">Open</button>
+    <input type="file" id="fOpen" accept=".json,.mosb,application/json" style="display:none">
+    <div class="spacer"></div>
+    <button id="bDemo">Ring oscillator</button>
+    <button id="bSim" class="go">Simulate ▶</button>
+    <button id="bExp" class="go">Export connections.json</button>
+  </div>
+  <aside id="left"></aside>
+  <div id="wrap"><svg id="cv"></svg><div id="hint"></div><div id="zoom"></div></div>
+  <aside id="right">
+    <div id="meter">
+      <div class="top"><span>BUS ALLOCATION</span><span class="cnt" id="mCnt">0/10</span></div>
+      <div class="slots" id="mSlots"></div>
+    </div>
+    <div class="ph">Nets</div><div id="nets"></div><div id="drc"></div>
+  </aside>
+  <div id="status">
+    <span>MODE <b id="sMode">select</b></span>
+    <span>DEVICES <b id="sComp">0</b></span>
+    <span>SEGMENTS <b id="sWire">0</b></span>
+    <span>NETS <b id="sNet">0</b></span>
+    <span>SELECTED <b id="sSel">—</b></span>
+    <span class="spacer"></span>
+    <span id="sSaved"></span>
+  </div>
+</div>
+<div id="pmodal"><div id="pcard"><h3 id="ptitle">Properties</h3>
+  <div id="pbody"></div>
+  <div id="cardfoot"><button id="pOk" class="go">Apply</button><button id="pX">Cancel</button></div>
+</div></div>
+
+<div id="tmodal"><div id="tcard"><h3 id="ttitle">Text annotation</h3>
+  <div id="tbody">
+    <textarea id="tText" rows="3" placeholder="type your note…"></textarea>
+    <div class="prow"><label>font size</label>
+      <input id="tSize" value="14"><span class="u">px</span></div>
+    <div class="prow"><label>align</label>
+      <span class="seg" id="tAlign">
+        <button type="button" data-al="left" class="on">Left</button
+        ><button type="button" data-al="center">Center</button
+        ><button type="button" data-al="right">Right</button>
+      </span></div>
+    <div style="font-size:10.5px;color:var(--dim);margin-top:8px;line-height:1.6">
+      Enter makes a new line; <b>ctrl+enter</b> accepts. After OK the note follows
+      your cursor — <b>r</b> rotates it, click to place, <b>esc</b> cancels.</div>
+  </div>
+  <div id="cardfoot"><button id="tOk" class="go">OK</button><button id="tX">Cancel</button></div>
+</div></div>
+
+<div id="sim">
+  <div id="simbar">
+    <span class="brand">MAESTRO — transient</span>
+    <span id="simstat"></span><span class="spacer"></span>
+    <button id="simProbe">Probe nets</button>
+    <button id="simCheck">Check</button>
+    <button id="simRun" class="go">Run ▶</button><button id="simX">Close</button>
+  </div>
+  <div id="simsetup">
+    <div class="ph">Analysis</div><div id="anaBox"></div>
+    <div class="ph">Stimulus</div><div id="stimBox"></div>
+    <div class="ph">Signals</div><div id="probeBox"></div>
+    <div class="ph">Measurements</div><div id="measBox"></div>
+    <div class="ph">Model &amp; caveats</div>
+    <div style="padding:6px 12px 16px;font-size:10.5px;color:var(--dim);line-height:1.6">
+      The die is <b>65&nbsp;nm CMOS thick-oxide</b> devices at 2.5&nbsp;V. The TSMC&nbsp;0.25&nbsp;µm
+      card shipped with the LTspice library — and used here — is a stand-in Columbia reports
+      tracks measurement closely. Compact MOSFET model: EKV-style soft threshold (so
+      subthreshold slope and the gm/I<sub>D</sub> ceiling are right), velocity saturation,
+      channel-length modulation, built from
+      <span style="font-family:var(--mono)">vth0</span>,
+      <span style="font-family:var(--mono)">tox</span>,
+      <span style="font-family:var(--mono)">u0</span> and the real device geometry.
+      Transient uses trapezoidal integration with adaptive stepping.
+      <br><br>
+      <b style="color:#D6A653">Not modelled:</b> the 15&nbsp;Ω crossbar switches, the ESD series
+      resistors, and pad / bus capacitance — the last is not documented anywhere upstream.
+      Expect simulated switching to come out <i>much</i> faster than the bench: the reference
+      3-stage ring measures 14–18&nbsp;MHz on silicon and simulates here in the GHz, because
+      only intrinsic device capacitance is present. Add explicit load capacitors to close
+      the gap. Shapes, ratios and trends are trustworthy; absolute speed is not.
+    </div>
+  </div>
+  <div id="simplot"><svg id="pl"></svg><div id="plhint"></div></div>
+</div>
+
+<div id="modal"><div id="card"><h3>connections.json</h3><pre id="out"></pre>
+  <pre id="picolog"></pre>
+  <div id="cardfoot">
+    <button id="bProg" class="go">Program Raspberry Pi Pico</button>
+    <button id="bDl">Download</button>
+    <button id="bCopy">Copy</button><button id="bClose">Close</button></div></div></div>
+
+<script>
+"use strict";
+/* ==========================================================================
+   MOSbius V1 — schematic editor
+   Pin order + PCB numbers : BitStream._subckt_pindict
+   Pin names               : the .asy symbol files
+   Hardwired rails         : FLAG statements inside each block .asc
+                             ('0' = ground, 'VDD' = on-die supply rail)
+   pMOS blocks list DRAIN before GATE; nMOS list gate first.
+   On the inverters, inp drives the pMOS gate and inn drives the nMOS gate —
+   the two halves have independent inputs.
+   ========================================================================== */
+
+const NS='http://www.w3.org/2000/svg';
+const ink='var(--ink)';
+const el=(t,a)=>{const n=document.createElementNS(NS,t);for(const k in a)n.setAttribute(k,a[k]);return n};
+
+/* ---------- svg primitives (string based) ---------- */
+const P=(d,o={})=>`<path d="${d}" fill="${o.f||'none'}" stroke="${o.s===null?'none':(o.s||ink)}" stroke-width="${o.w||1.5}" stroke-linecap="round" stroke-linejoin="round"/>`;
+/* TXINV holds the inverse of the device transform currently being drawn, so that
+   label text stays upright and readable on rotated / mirrored instances.
+   translate(x,y)·inv(T) inside a group carrying T leaves the glyphs unrotated
+   while still placing them at the transformed position. */
+let TXINV='';
+const TX=(x,y,t,o={})=>`<text x="0" y="0" transform="translate(${x},${y})${TXINV}" font-family="${o.ff||'var(--mono)'}" font-size="${o.z||9}" fill="${o.c||'var(--dim)'}" text-anchor="${o.a||'middle'}" style="pointer-events:none">${t}</text>`;
+
+/* ---------- MOSFET primitive ----------
+   Gate lead ends at (-40k,0). Top terminal (0,-40k). Bottom terminal (0,40k).
+   Bulk lead exits right to (40k,0) when `bulk` is true, else merges into source.
+   nMOS: drain top / source bottom.  pMOS: source top / drain bottom.        */
+function mos(type, k, bulk){
+  k=k||1; const n=type==='n';
+  const g=-40*k, gp=20*k, gy=14*k, cx=12*k, cy=16*k, col=0, term=40*k;
+  let d='';
+  d+=P(`M${g},0 H${-gp}`);                       // gate lead
+  d+=P(`M${-gp},${-gy} V${gy}`, {w:1.7});        // gate plate
+  d+=P(`M${-cx},${-cy} V${cy}`, {w:1.7});        // channel
+  d+=P(`M${-cx},${-12*k} H${col} V${-term}`);    // top terminal
+  d+=P(`M${-cx},${ 12*k} H${col} V${ term}`);    // bottom terminal
+  // bulk lead + arrow (arrow points toward channel for nMOS, away for pMOS)
+  const bx = bulk ? 40*k : 0;
+  d+=P(`M${-cx},0 H${bx}`);
+  const ax=-cx+9*k, s=4.2*k;
+  d+= n ? P(`M${ax+s},${-s} L${ax},0 L${ax+s},${s} Z`,{f:ink,s:null})
+        : P(`M${ax},${-s} L${ax+s},0 L${ax},${s} Z`,{f:ink,s:null});
+  return d;
+}
+/* ground / supply glyphs, same ink as the device (these are tied on-die) */
+const GND=(x,y)=>P(`M${x},${y} v10 M${x-9},${y+10} h18 M${x-5.5},${y+14} h11 M${x-2},${y+18} h4`);
+const VDDG=(x,y)=>P(`M${x},${y} v-10 M${x-9},${y-10} h18`)+TX(x,y-15,'VDD',{z:7.5});
+
+/* ==========================================================================
+   Device library. pins: [name, pcbPin, x, y, labelSide]
+   ========================================================================== */
+function T(k,n,g,tag,pins,draw,bb){return {k,n,g,tag,pins:pins.map(p=>({nm:p[0],pcb:p[1],x:p[2],y:p[3],s:p[4]})),draw,bb}}
+
+const LIB=[
+/* ---- single nMOS: gate L, drain T, source B(gnd) ---- */
+T('cs_nmos_4x_a','CS nMOS 4x A','Common source','4x A',
+  [['gate',28,-40,0,'l'],['drain',29,0,-40,'t']],
+  ()=>mos('n',1,false)+GND(0,40),[-52,-52,52,72]),
+T('cs_nmos_4x_b','CS nMOS 4x B','Common source','4x B',
+  [['gate',30,-40,0,'l'],['drain',31,0,-40,'t']],
+  ()=>mos('n',1,false)+GND(0,40),[-52,-52,52,72]),
+T('cs_pmos_4x_a','CS pMOS 4x A','Common source','4x A',
+  [['drain',57,0,40,'b'],['gate',58,-40,0,'l']],
+  ()=>mos('p',1,false)+VDDG(0,-40),[-52,-72,52,52]),
+T('cs_pmos_4x_b','CS pMOS 4x B','Common source','4x B',
+  [['drain',59,0,40,'b'],['gate',60,-40,0,'l']],
+  ()=>mos('p',1,false)+VDDG(0,-40),[-52,-72,52,52]),
+
+/* ---- diff-pair halves: 1x has bulk tied, 4x exposes it ---- */
+T('dp_nmos_1x_a','DP nMOS 1x A','Differential pairs','1x A',
+  [['gate',36,-40,0,'l'],['drain',35,0,-40,'t'],['source',37,0,40,'b']],
+  ()=>mos('n',1,false),[-52,-52,52,52]),
+T('dp_nmos_1x_b','DP nMOS 1x B','Differential pairs','1x B',
+  [['gate',39,-40,0,'l'],['drain',40,0,-40,'t'],['source',38,0,40,'b']],
+  ()=>mos('n',1,false),[-52,-52,52,52]),
+T('dp_nmos_4x_a','DP nMOS 4x A','Differential pairs','4x A',
+  [['gate',45,-40,0,'l'],['drain',46,0,-40,'t'],['source',44,0,40,'b'],['substrate',47,40,0,'r']],
+  ()=>mos('n',1,true),[-52,-52,60,52]),
+T('dp_nmos_4x_b','DP nMOS 4x B','Differential pairs','4x B',
+  [['gate',42,-40,0,'l'],['drain',41,0,-40,'t'],['source',43,0,40,'b'],['substrate',47,40,0,'r']],
+  ()=>mos('n',1,true),[-52,-52,60,52]),
+T('dp_pmos_1x_a','DP pMOS 1x A','Differential pairs','1x A',
+  [['drain',12,0,40,'b'],['gate',13,-40,0,'l'],['source',14,0,-40,'t']],
+  ()=>mos('p',1,false),[-52,-52,52,52]),
+T('dp_pmos_1x_b','DP pMOS 1x B','Differential pairs','1x B',
+  [['drain',17,0,40,'b'],['gate',16,-40,0,'l'],['source',15,0,-40,'t']],
+  ()=>mos('p',1,false),[-52,-52,52,52]),
+T('dp_pmos_4x_a','DP pMOS 4x A','Differential pairs','4x A',
+  [['drain',6,0,40,'b'],['gate',7,-40,0,'l'],['source',8,0,-40,'t'],['nwell',5,40,0,'r']],
+  ()=>mos('p',1,true),[-52,-52,60,52]),
+T('dp_pmos_4x_b','DP pMOS 4x B','Differential pairs','4x B',
+  [['drain',9,0,40,'b'],['gate',10,-40,0,'l'],['source',11,0,-40,'t'],['nwell',5,40,0,'r']],
+  ()=>mos('p',1,true),[-52,-52,60,52]),
+
+/* ---- inverters: split gates, pMOS over nMOS ---- */
+T('inverter_a','Inverter A 16x','Inverters','inv A',
+  [['inp',52,-80,-60,'l'],['inn',53,-80,60,'l'],['out',51,60,0,'r']],
+  ()=>inverter(),[-92,-118,72,118]),
+T('inverter_b','Inverter B 16x','Inverters','inv B',
+  [['inp',50,-80,-60,'l'],['inn',48,-80,60,'l'],['out',49,60,0,'r']],
+  ()=>inverter(),[-92,-118,72,118]),
+
+/* ---- current mirrors ---- */
+T('nmos_currentmirror','nMOS mirror 1:1','Current mirrors','nMOS 1:1',
+  [['in',26,0,-80,'t'],['out',27,140,-80,'t']],
+  ()=>mirror('n',[['1x',140]]),[-70,-114,210,104]),
+T('pmos_currentmirror','pMOS mirror 1:1','Current mirrors','pMOS 1:1',
+  [['gate',62,0,80,'b'],['drain',61,140,80,'b']],
+  ()=>mirror('p',[['1x',140]]),[-70,-104,210,130]),
+T('nmos_currentmirror_array','nMOS mirror array','Current mirrors','nMOS array',
+  [['in',19,0,-80,'t'],['out1',20,110,-80,'t'],['out2',21,220,-80,'t'],['out4',22,330,-80,'t'],
+   ['out8',23,440,-80,'t'],['out16',24,550,-80,'t'],['out32',25,660,-80,'t']],
+  ()=>mirror('n',[['1x',110],['2x',220],['4x',330],['8x',440],['16x',550],['32x',660]]),
+  [-70,-114,730,104]),
+T('pmos_currentmirror_array','pMOS mirror array','Current mirrors','pMOS array',
+  [['in',68,0,80,'b'],['out1',67,110,80,'b'],['out2',66,220,80,'b'],['out4',65,330,80,'b'],
+   ['out8',64,440,80,'b'],['out16',63,550,80,'b']],
+  ()=>mirror('p',[['1x',110],['2x',220],['4x',330],['8x',440],['16x',550]]),
+  [-70,-104,620,130]),
+
+/* ---- OTAs ---- */
+T('ota_nmos','OTA nMOS','Amplifiers','OTA_N',
+  [['inp',32,-60,-24,'l'],['inn',33,-60,24,'l'],['out',34,72,0,'r'],['biasn',19,0,84,'b']],
+  ()=>ota('biasn',false),[-72,-56,84,100]),
+T('ota_pmos','OTA pMOS','Amplifiers','OTA_P',
+  [['inp',56,-60,-24,'l'],['inn',55,-60,24,'l'],['out',54,72,0,'r'],['biasp',68,0,-84,'t']],
+  ()=>ota('biasp',true),[-72,-100,84,56]),
+
+/* ---- supply taps ---- */
+T('chip_vdd','Chip VDD','Supply taps','',[['chip_vdd',1,0,40,'b']],
+  ()=>P('M-46,-22 H46 V16 H-46 Z',{f:'#101820'})+TX(0,4,'chip_vdd',{z:11,c:'var(--accent)'})
+     +P('M0,16 V40'),[-52,-30,52,52]),
+T('chip_vss','Chip VSS','Supply taps','',[['chip_vss',18,0,-40,'t']],
+  ()=>P('M-46,-16 H46 V22 H-46 Z',{f:'#101820'})+TX(0,10,'chip_vss',{z:11,c:'var(--accent)'})
+     +P('M0,-16 V-40'),[-52,-52,52,30]),
+
+/* ---- off-chip testbench ---- */
+T('vdc','VDC','Testbench','',[['p',null,0,-40,'t'],['n',null,0,40,'b']],
+  ()=>P('M0,0 m-22,0 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0')+P('M0,-40 V-22')+P('M0,22 V40')
+     +TX(0,-4,'+',{z:13,c:ink})+TX(0,14,'\u2212',{z:13,c:ink}),[-30,-52,30,52]),
+T('vpulse','VPULSE','Testbench','',[['p',null,0,-40,'t'],['n',null,0,40,'b']],
+  ()=>P('M0,0 m-22,0 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0')+P('M0,-40 V-22')+P('M0,22 V40')
+     +P('M-13,7 V-4 H-2 V7 H9 V-4',{w:1.4}),[-30,-52,30,52]),
+T('vpwl','VPWL','Testbench','',[['p',null,0,-40,'t'],['n',null,0,40,'b']],
+  ()=>P('M0,0 m-22,0 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0')+P('M0,-40 V-22')+P('M0,22 V40')
+     +P('M-13,8 L-4,-6 L4,4 L13,-8',{w:1.4}),[-30,-52,30,52]),
+T('idc','IDC','Testbench','',[['p',null,0,-40,'t'],['n',null,0,40,'b']],
+  ()=>P('M0,0 m-22,0 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0')+P('M0,-40 V-22')+P('M0,22 V40')
+     +P('M0,-11 V11')+P('M-5,4 L0,11 L5,4 Z',{f:ink,s:null}),[-30,-52,30,52]),
+T('res','Resistor','Testbench','',[['a',null,0,-40,'t'],['b',null,0,40,'b']],
+  ()=>P('M0,-40 V-20')+P('M0,20 V40')+P('M-9,-20 H9 V20 H-9 Z'),[-20,-52,20,52]),
+T('cap','Capacitor','Testbench','',[['a',null,0,-40,'t'],['b',null,0,40,'b']],
+  ()=>P('M0,-40 V-7')+P('M-16,-7 H16')+P('M-16,7 H16')+P('M0,7 V40'),[-24,-52,24,52]),
+T('ind','Inductor','Testbench','',[['a',null,0,-40,'t'],['b',null,0,40,'b']],
+  ()=>P('M0,-40 V-24')+P('M0,24 V40')
+     +P('M0,-24 a8,8 0 0,1 0,16 a8,8 0 0,1 0,16 a8,8 0 0,1 0,16',{w:1.4}),[-20,-52,20,52]),
+T('gnd','Ground','Testbench','',[['g',null,0,-20,'t']],
+  ()=>P('M0,-20 V0')+P('M-14,0 H14')+P('M-8,5 H8')+P('M-3,10 H3'),[-20,-30,20,22]),
+/* Sine source. Drives transient directly and is the natural thing to select as
+   the AC excitation. */
+T('vsin','VSIN','Testbench','',[['p',null,0,-40,'t'],['n',null,0,40,'b']],
+  ()=>P('M0,0 m-22,0 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0')+P('M0,-40 V-22')+P('M0,22 V40')
+     +P('M-12,0 a6,6 0 0,1 12,0 a6,6 0 0,0 12,0',{w:1.5}),[-30,-52,30,52]),
+/* No-connect: marks a pin as deliberately left open, so it stops being reported
+   as a floating terminal and the node still exists for the solver. */
+T('noconn','No connect','Testbench','',[['x',null,0,-20,'t']],
+  ()=>P('M0,-20 V-4')+P('M-7,-11 L7,3',{s:'var(--open)'})+P('M7,-11 L-7,3',{s:'var(--open)'}),
+  [-14,-28,14,10]),
+
+/* ---- free text annotation: no pins, carries its own content in props ---- */
+T('text','Text','Annotation','',[],c=>drawText(c),c=>bbText(c)),
+];
+
+/* ---------- text annotation ---------- */
+const TXT=c=>({ s:(c&&c.props&&c.props.text)||'Text',
+                z:Math.max(6,Math.min(96,+((c&&c.props&&c.props.size)||14))),
+                a:(c&&c.props&&c.props.align)||'left' });
+const TANCH={left:'start',center:'middle',right:'end'};
+function drawText(c){
+  const {s,z,a}=TXT(c);
+  const esc=t=>t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(s).split('\n').map((ln,i)=>
+    TX(0, i*z*1.28, esc(ln), {z, c:'var(--ink)', a:TANCH[a], ff:'var(--sans)'})).join('');
+}
+function bbText(c){
+  const {s,z,a}=TXT(c);
+  const lines=String(s).split('\n');
+  const w=Math.max(4,...lines.map(l=>l.length))*z*0.55+8;
+  const h=lines.length*z*1.28+4;
+  const x0=a==='center'?-w/2:a==='right'?-w:0;
+  return [x0-4, -z, x0+w+4, h-z*0.3];
+}
+
+/* ---------- composite symbol builders ---------- */
+function inverter(){
+  let d='';
+  // pMOS upper (source top -> VDD, drain bottom -> out)
+  d+=`<g transform="translate(0,-60)">${mos('p',.85,false)}</g>`;
+  d+=`<g transform="translate(0,60)">${mos('n',.85,false)}</g>`;
+  d+=VDDG(0,-94);                       // pMOS source up to rail
+  d+=GND(0,94);                         // nMOS source down to rail
+  d+=P('M0,-26 V26');                   // drain-drain output column
+  d+=P('M0,0 H60');                     // output lead
+  d+=P('M-34,-60 H-80');                // inp lead to pMOS gate
+  d+=P('M-34,60 H-80');                 // inn lead to nMOS gate
+  d+=TX(22,-64,'16x',{z:9,c:'var(--accent)',a:'start'});
+  d+=TX(22,72,'16x',{z:9,c:'var(--accent)',a:'start'});
+  d+=TX(-56,-70,'inp',{z:8.5,a:'middle'});
+  d+=TX(-56,52,'inn',{z:8.5,a:'middle'});
+  /* clear of the ground glyph, whose lowest bar sits at y = 112 */
+  return d;
+}
+function mirror(type,outs){
+  /* Input device (diode-connected) at x=0, scaled copies to the right.
+     All gates face left. The common gate rail runs clear of every device
+     body, so nothing is drawn through a transistor. */
+  const n=type==='n', k=.85;
+  const term=40*k;                      // device terminal offset (34)
+  const yOut = n?-term:term;            // drain side (up for n, down for p)
+  const yRail= n? term:-term;           // source side
+  const pinY = n?-80:80;                // where the output pins sit
+  const gateY= n? 84:-84;               // common gate rail, below/above everything
+  const tieY = n?-58: 58;               // diode tie height
+  const gx   = -term;                   // gate stub x offset within a device
+  let d='', maxx=0;
+
+  const dev=(x,lbl)=>{
+    let s=`<g transform="translate(${x},0)">${mos(type,k,false)}</g>`;
+    s+= n?GND(x,term):VDDG(x,-term);            // source to its own rail glyph
+    s+= P(`M${x},${yOut} V${pinY}`);            // drain up/down to the pin
+    s+= P(`M${x+gx},0 V${gateY}`);              // gate stub down/up to the rail
+    s+= TX(x+18,n?-16:16,lbl,{z:9,c:'var(--accent)',a:'start'});
+    maxx=Math.max(maxx,x);
+    return s;
+  };
+  d+=dev(0,'1x');
+  outs.forEach(([lbl,x])=>{d+=dev(x,lbl)});
+  d+=P(`M${gx},${gateY} H${maxx+gx}`);          // the common gate rail
+  /* Diode connection: the input drain is tapped across and then DOWN (nMOS) or
+     UP (pMOS) onto its own gate stub, which spans y = 0 .. gateY. Running only
+     the horizontal leg leaves the tie dead-ending |tieY| units short of the
+     stub, which draws a diode-connected device as an open circuit. */
+  d+=P(`M0,${tieY} H${gx} V0`);
+  d+=`<circle cx="0" cy="${tieY}" r="3.2" fill="var(--ink)"/>`;
+  return d;
+}
+/* The bias pin is the GATE of the tail transistor (M1, m=2) inside the OTA.
+   In OTA_nMOS that tail is an nMOS with its source at ground, so the pin belongs
+   at the bottom. In OTA_pMOS the tail is a pMOS with its source at VDD, so it
+   belongs at the top. Read out of OTA_nMOS.asc / OTA_pMOS.asc. */
+function ota(bias,up){
+  let d=P('M-34,-42 L-34,42 L52,0 Z',{f:'#101820'});
+  d+=TX(-22,-13,'+',{z:13,c:ink,a:'start'});
+  d+=TX(-22,26,'\u2212',{z:13,c:ink,a:'start'});
+  d+=P('M-60,-24 H-34')+P('M-60,24 H-34')+P('M52,0 H72');
+  d+=up? P('M0,-25 V-84') : P('M0,25 V84');
+  d+=TX(12,up?-64:64,bias,{z:8.5,a:'start'});
+  return d;
+}
+const BY=Object.fromEntries(LIB.map(c=>[c.k,c]));
+const isTB=k=>BY[k].g==='Testbench'||BY[k].g==='Annotation';
+
+/* ==========================================================================
+   State
+   ========================================================================== */
+/* A component is {id, key, x, y, r:0|90|180|270, m:0|1, props?}.
+   r = rotation in degrees clockwise, m = mirrored about the vertical axis.
+   The transform applied to local symbol coordinates is  rotate(r) . scale(m?-1:1, 1). */
+let comps=[], segs=[], uid=1;
+/* mode: 'select' (the default) | 'wire' | 'zoom' | 'delete'
+   placeRot/placeMir orient the ghost preview before the component is dropped. */
+let mode='select', placeKey=null, placeRot=0, placeMir=0, placeProps=null;
+let draw=null;                     // {pts:[[x,y]], elbowH:true}
+let selIds=new Set(), selSegs=new Set();
+let hover=null;                    // {kind:'dev',id} | {kind:'seg',i} under the cursor
+let opRes=null, showOp=false;      // last operating point, and whether to annotate it
+let probeReturn=false;             // escape from probe mode should reopen the simulator
+let hiNet=null, drag=null, pan=null, band=null;
+let busOf={}, alias={}, nameOfPin={}, nextNet=1, cur={x:0,y:0}, hoverPin=null;
+let view={x:60,y:40,k:.8};
+const G=20, sn=v=>Math.round(v/G)*G;
+const cv=document.getElementById('cv');
+
+const toWorld=(sx,sy)=>({x:(sx-view.x)/view.k, y:(sy-view.y)/view.k});
+
+/* ---------- component transform ---------- */
+function xf(c,x,y){                       // local symbol coords -> world
+  if(c.m) x=-x;
+  const r=((c.r||0)%360+360)%360;
+  let px=x, py=y;
+  if(r===90){px=-y;py=x} else if(r===180){px=-x;py=-y} else if(r===270){px=y;py=-x}
+  return {x:c.x+px, y:c.y+py};
+}
+function xfDir(c,dx,dy){                  // direction vector, no translation
+  const o=xf({x:0,y:0,r:c.r,m:c.m},dx,dy); return {x:o.x,y:o.y};
+}
+/* SVG transform for the device group, and its inverse for upright text */
+const xfSVG =c=>`rotate(${c.r||0})${c.m?' scale(-1,1)':''}`;
+const xfSVGi=c=>`${c.m?'scale(-1,1) ':''}rotate(${-(c.r||0)})`;
+/* world-space bounding box of a placed component */
+const bbOf=c=>{const b=BY[c.key].bb;return typeof b==='function'?b(c):b};
+function bbox(c){
+  const B=bbOf(c);
+  const pts=[[B[0],B[1]],[B[2],B[1]],[B[2],B[3]],[B[0],B[3]]].map(([x,y])=>xf(c,x,y));
+  return [Math.min(...pts.map(p=>p.x)),Math.min(...pts.map(p=>p.y)),
+          Math.max(...pts.map(p=>p.x)),Math.max(...pts.map(p=>p.y))];
+}
+const pinPos=(c,i)=>{const p=BY[c.key].pins[i];return xf(c,p.x,p.y)};
+const pinKey=(c,i)=>'p'+c.id+'_'+i;
+
+/* ==========================================================================
+   Undo / redo. Snapshots are cheap (a few kB) and far less bug-prone than
+   trying to invert every edit operation.
+   ========================================================================== */
+const SCHEMA=1;
+function snapshot(){
+  return JSON.stringify({v:SCHEMA,comps,segs,busOf,alias,uid,nextNet,nameOfPin});
+}
+function restore(s){
+  const o=JSON.parse(s);
+  comps=o.comps||[]; segs=o.segs||[]; busOf=o.busOf||{}; alias=o.alias||{};
+  uid=o.uid||1; nextNet=o.nextNet||1; nameOfPin=o.nameOfPin||{};
+  selIds=new Set(); selSegs=new Set(); drag=null; draw=null; band=null;
+}
+let hist=[], hpos=-1, histLock=false;
+function commit(){                        // call AFTER mutating state
+  if(histLock)return;
+  hist=hist.slice(0,hpos+1);
+  hist.push(snapshot());
+  if(hist.length>120)hist.shift();
+  hpos=hist.length-1;
+  autosave();
+}
+function undo(){ if(hpos<=0)return; hpos--; histLock=true; restore(hist[hpos]); histLock=false; autosave(); render(); }
+function redo(){ if(hpos>=hist.length-1)return; hpos++; histLock=true; restore(hist[hpos]); histLock=false; autosave(); render(); }
+
+/* ==========================================================================
+   Persistence. Autosave to localStorage on every commit, restored on load;
+   explicit Save / Open for a portable .mosb.json project file.
+   ========================================================================== */
+const LSKEY='mosbius.schematic.autosave.v1';
+/* Some browsers refuse localStorage on file:// origins (Safari always, Chrome
+   depending on flags). Autosave is then unavailable and the user needs to know,
+   because Save is the only thing standing between them and losing work. */
+let canStore=(()=>{ try{ localStorage.setItem(LSKEY+'.probe','1');
+  localStorage.removeItem(LSKEY+'.probe'); return true }catch(e){ return false } })();
+function autosave(){ if(!canStore)return; try{ localStorage.setItem(LSKEY,snapshot()) }catch(e){canStore=false} }
+function loadAutosave(){
+  try{ const s=localStorage.getItem(LSKEY); if(!s)return false;
+       const o=JSON.parse(s); if(!o.comps||!o.comps.length)return false;
+       restore(s); return true; }catch(e){ return false }
+}
+
+/* ==========================================================================
+   Connectivity — geometric, like a real schematic editor.
+   A pin joins a segment if it lies anywhere on it (including T-junctions).
+   ========================================================================== */
+const EPS=0.01;
+function onSeg(px,py,s){
+  const {x1,y1,x2,y2}=s;
+  if(Math.abs(x1-x2)<EPS) return Math.abs(px-x1)<EPS && py>=Math.min(y1,y2)-EPS && py<=Math.max(y1,y2)+EPS;
+  if(Math.abs(y1-y2)<EPS) return Math.abs(py-y1)<EPS && px>=Math.min(x1,x2)-EPS && px<=Math.max(x1,x2)+EPS;
+  return false;
+}
+function connectivity(){
+  const par={}, add=k=>{if(par[k]===undefined)par[k]=k};
+  const find=a=>{while(par[a]!==a)a=par[a]=par[par[a]];return a};
+  const uni=(a,b)=>{a=find(a);b=find(b);if(a!==b)par[a]=b};
+  const pts=[];                                   // {x,y,id}
+  comps.forEach(c=>BY[c.key].pins.forEach((_,i)=>{
+    const p=pinPos(c,i), k=pinKey(c,i); add(k); pts.push({x:p.x,y:p.y,id:k});
+  }));
+  segs.forEach((s,i)=>{
+    const a='s'+i+'a', b='s'+i+'b'; add(a); add(b); uni(a,b);
+    pts.push({x:s.x1,y:s.y1,id:a},{x:s.x2,y:s.y2,id:b});
+  });
+  // coincident points
+  const bucket={};
+  pts.forEach(p=>{const k=p.x+','+p.y;(bucket[k]=bucket[k]||[]).push(p.id)});
+  Object.values(bucket).forEach(ids=>ids.forEach(id=>uni(id,ids[0])));
+  // point lying on a segment interior
+  segs.forEach((s,i)=>pts.forEach(p=>{ if(onSeg(p.x,p.y,s)) uni(p.id,'s'+i+'a'); }));
+  return {find, bucket, pts};
+}
+function nets(){
+  const {find}=connectivity();
+  const grp={};
+  comps.forEach(c=>BY[c.key].pins.forEach((_,i)=>{
+    const r=find(pinKey(c,i)); (grp[r]=grp[r]||[]).push({c,i});
+  }));
+  const out=Object.entries(grp).filter(([,g])=>g.length>1).map(([root,g])=>{
+    const mem=g.map(({c,i})=>{const d=BY[c.key].pins[i];
+      return {c,i,nm:d.nm,pcb:d.pcb,key:pinKey(c,i)}});
+    return {root, mem, onchip:mem.filter(m=>m.pcb!==null), keys:mem.map(m=>m.key)};
+  });
+  /* n.id is the stable internal identity (netN, inherited from the lowest-numbered
+     member so edits don't renumber the sheet). n.name is what the user sees and
+     what the exporter writes — an alias if one has been set, else the id.
+     busOf and alias are keyed by id, so renaming a net keeps its bus. */
+  const fresh={};
+  out.forEach(n=>{
+    const old=n.keys.map(k=>nameOfPin[k]).filter(Boolean).sort((a,b)=>+a.slice(3)-+b.slice(3));
+    n.id=old[0]||('net'+(nextNet++));
+    n.name=alias[n.id]||n.id;
+    n.keys.forEach(k=>fresh[k]=n.id);
+  });
+  nameOfPin=fresh;
+  out.sort((a,b)=>+a.id.slice(3)-+b.id.slice(3));
+  return out;
+}
+
+/* ==========================================================================
+   Render
+   ========================================================================== */
+function elbow(a,b,h){
+  if(a[0]===b[0]||a[1]===b[1]) return [b];
+  return h? [[b[0],a[1]],b] : [[a[0],b[1]],b];
+}
+function render(){
+  const N=nets(), {find,bucket}=connectivity();
+  const netByRoot={}; N.forEach(n=>netByRoot[n.root]=n);
+  const netOfPin={}; N.forEach(n=>n.mem.forEach(m=>netOfPin[m.key]=n));
+  const W=cv.clientWidth||1200, H=cv.clientHeight||800;
+
+  let g=`<defs>
+    <pattern id="gp" width="${G}" height="${G}" patternUnits="userSpaceOnUse">
+      <circle cx="0.5" cy="0.5" r="0.7" fill="var(--grid)"/></pattern>
+    <pattern id="gp2" width="${G*5}" height="${G*5}" patternUnits="userSpaceOnUse">
+      <rect width="${G*5}" height="${G*5}" fill="url(#gp)"/>
+      <circle cx="0.5" cy="0.5" r="1.3" fill="var(--grid2)"/></pattern>
+  </defs>
+  <rect x="${-view.x/view.k}" y="${-view.y/view.k}" width="${W/view.k}" height="${H/view.k}"
+        fill="url(#gp2)" transform="translate(${view.x},${view.y}) scale(${view.k})"/>`;
+
+  g+=`<g transform="translate(${view.x},${view.y}) scale(${view.k})">`;
+
+  /* wires */
+  const hovSeg=hover&&hover.kind==='seg'?hover.i:-1;
+  const killing=mode==='delete';
+  const probing=mode==='probe';
+  const isProbed=n=>n&&probe['V:'+n.name];
+  segs.forEach((s,i)=>{
+    const n=netByRoot[find('s'+i+'a')];
+    const hot=n&&hiNet===n.id, isS=selSegs.has(i), hv=hovSeg===i;
+    if(isProbed(n))g+=`<line x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}"
+        stroke="var(--good)" stroke-width="${6/view.k}" stroke-opacity="0.30" stroke-linecap="round"/>`;
+    if(hv)g+=`<line x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}"
+        stroke="${killing?'var(--bad)':probing?'var(--good)':'var(--accent)'}" stroke-width="${7/view.k}"
+        stroke-opacity="0.28" stroke-linecap="round"/>`;
+    g+=`<g data-seg="${i}">
+      <line x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}"
+        stroke="${isS?'var(--sel)':hv?(killing?'var(--bad)':'var(--accent)'):hot?'var(--accent)':'var(--wire)'}"
+        stroke-width="${isS||hot||hv?2.2:1.6}" ${isS?'stroke-dasharray="7 4"':''}/></g>`;
+  });
+
+  /* junction dots: 3+ things meeting at a coordinate */
+  Object.entries(bucket).forEach(([k,ids])=>{
+    if(ids.length<3) return;
+    const [x,y]=k.split(',').map(Number);
+    g+=`<circle cx="${x}" cy="${y}" r="3.4" fill="var(--junction)"/>`;
+  });
+  /* T-junctions: an endpoint sitting on another segment */
+  segs.forEach((s,i)=>{
+    [[s.x1,s.y1],[s.x2,s.y2]].forEach(([x,y])=>{
+      const on=segs.some((o,j)=>j!==i&&onSeg(x,y,o)&&!( (o.x1===x&&o.y1===y)||(o.x2===x&&o.y2===y) ));
+      if(on) g+=`<circle cx="${x}" cy="${y}" r="3.4" fill="var(--junction)"/>`;
+    });
+  });
+
+  /* devices */
+  const SIDEV={l:[-1,0],r:[1,0],t:[0,-1],b:[0,1]};
+  comps.forEach(c=>{
+    const d=BY[c.key];
+    /* Symbol labels stay upright under rotation, but a text ANNOTATION is meant
+       to rotate — that is the whole point of turning it. */
+    TXINV=c.key==='text'?'':xfSVGi(c);
+    g+=`<g transform="translate(${c.x},${c.y}) ${xfSVG(c)}" data-dev="${c.id}">
+      <rect x="${d.bb[0]}" y="${d.bb[1]}" width="${d.bb[2]-d.bb[0]}" height="${d.bb[3]-d.bb[1]}"
+        fill="transparent"/>
+      ${d.draw(c)}
+      ${d.pins.map((p,i)=>`<circle cx="${p.x}" cy="${p.y}" r="10" fill="transparent"
+        data-pin="${c.id}|${i}"/>`).join('')}
+    </g>`;
+    TXINV='';
+    /* selection outline, hover highlight and pin annotation live in world space,
+       so they stay axis-aligned and readable however the device is transformed */
+    const hv=hover&&hover.kind==='dev'&&hover.id===c.id;
+    if(hv){
+      const B=bbox(c);
+      g+=`<rect x="${B[0]-3}" y="${B[1]-3}" width="${B[2]-B[0]+6}" height="${B[3]-B[1]+6}" rx="5"
+        fill="${killing?'rgba(224,96,90,0.13)':'rgba(79,208,227,0.10)'}"
+        stroke="${killing?'var(--bad)':'var(--accent)'}" stroke-width="${1.2/view.k}"/>`;
+    }
+    if(selIds.has(c.id)){
+      const B=bbox(c);
+      g+=`<rect x="${B[0]}" y="${B[1]}" width="${B[2]-B[0]}" height="${B[3]-B[1]}" rx="4"
+        fill="none" stroke="var(--sel)" stroke-width="1" stroke-dasharray="4 4"/>`;
+    }
+    /* Labels sit BESIDE the device, not under it. Pins are on the left, top and
+       bottom of most symbols, so the right flank is the one side wires rarely
+       occupy — and every label gets an opaque plate so a wire crossing it can
+       never turn it to mush. */
+    const B=bbox(c);
+    const lb=instLabel(c);
+    const rows=[];
+    if(lb)rows.push({t:lb,c:'var(--accent)',z:9.5});
+    if(showOp&&opRes&&opRes.byComp[c.id]){
+      opRes.byComp[c.id].forEach(o=>rows.push({
+        t:`${o.nm||BY[c.key].tag||BY[c.key].n}  ${fv(o.Id,'A')}  gm ${fv(o.gm,'S')}`+
+          `  ro ${fv(o.ro,'Ω')}  A₀ ${o.gain<1000?o.gain.toFixed(1):o.gain.toPrecision(3)}`,
+        c:o.region==='saturation'?'var(--good)':o.region==='triode'?'#D6A653':'#8A97A4',
+        z:8.5, sub:o.region}));
+    }
+    if(rows.length){
+      const lh=12, padx=6, pady=4, gap=10;
+      const wid=Math.max(...rows.map(r=>r.t.length*r.z*0.56))+padx*2;
+      const hgt=rows.length*lh+pady*2;
+      /* Try each side and take the one the fewest wires run through. A symbol's
+         free flank depends on which pins it actually uses, so this beats always
+         picking one direction. */
+      const cands=[
+        [B[2]+gap,        (B[1]+B[3])/2-hgt/2],   // right
+        [B[0]-gap-wid,    (B[1]+B[3])/2-hgt/2],   // left
+        [(B[0]+B[2])/2-wid/2, B[3]+gap],          // below
+        [(B[0]+B[2])/2-wid/2, B[1]-gap-hgt]];     // above
+      const cost=(x,y)=>{
+        let n=0;
+        segs.forEach(sg=>{
+          const lx=Math.min(sg.x1,sg.x2),hx=Math.max(sg.x1,sg.x2);
+          const ly=Math.min(sg.y1,sg.y2),hy=Math.max(sg.y1,sg.y2);
+          if(hx>=x&&lx<=x+wid&&hy>=y&&ly<=y+hgt)n++;
+        });
+        comps.forEach(o=>{ if(o.id===c.id)return; const O=bbox(o);
+          if(O[2]>=x&&O[0]<=x+wid&&O[3]>=y&&O[1]<=y+hgt)n+=2; });
+        return n;
+      };
+      let best=cands[0],bc=Infinity;
+      cands.forEach(([x,y])=>{const k=cost(x,y); if(k<bc){bc=k;best=[x,y]}});
+      const [x0,y0]=best;
+      g+=`<rect x="${x0}" y="${y0}" width="${wid}" height="${hgt}" rx="3"
+         fill="var(--panel)" fill-opacity="0.93" stroke="#2A3541" stroke-width="0.8"/>`;
+      rows.forEach((r,i)=>{
+        g+=TX(x0+padx, y0+pady+lh*(i+1)-3.5, r.t, {z:r.z,c:r.c,a:'start'});
+      });
+    }
+    d.pins.forEach((p,i)=>{
+      const q=pinPos(c,i);
+      const conn=!!netOfPin[pinKey(c,i)];
+      const hov=hoverPin&&hoverPin.c===c.id&&hoverPin.i===i;
+      g+=conn?'':`<rect x="${q.x-2.8}" y="${q.y-2.8}" width="5.6" height="5.6"
+           fill="none" stroke="var(--open)" stroke-width="1.3"/>`;
+      if(hov)g+=`<circle cx="${q.x}" cy="${q.y}" r="7" fill="none" stroke="var(--accent)" stroke-width="1.6"/>`;
+      if(p.pcb===null)return;
+      /* place the pin number on whichever side the lead now points, and keep
+         horizontal ones clear of the wire that lands on them */
+      const v=xfDir(c,...SIDEV[p.s]);
+      const side=Math.abs(v.x)>Math.abs(v.y)?(v.x<0?'l':'r'):(v.y<0?'t':'b');
+      /* Never sit the number on the lead's own axis — that is exactly where the
+         wire lands. Offset it sideways and pull it IN toward the body instead. */
+      const off={l:[-8,-6,'end'],r:[8,-6,'start'],t:[7,14,'start'],b:[7,-8,'start']}[side];
+      g+=TX(q.x+off[0],q.y+off[1],p.pcb,{z:9,a:off[2],c:hov?'var(--accent)':'#7E8E9C'});
+    });
+  });
+
+  /* net name labels — one per net, on its longest segment */
+  const best={};
+  segs.forEach((s,i)=>{
+    const n=netByRoot[find('s'+i+'a')]; if(!n)return;
+    const L=Math.abs(s.x2-s.x1)+Math.abs(s.y2-s.y1);
+    if(!best[n.id]||L>best[n.id].L) best[n.id]={L,s,n};
+  });
+  Object.values(best).forEach(({s,n})=>{
+    const mx=(s.x1+s.x2)/2, my=(s.y1+s.y2)/2, w=n.name.length*6+10;
+    const hot=hiNet===n.id;
+    if(probe['V:'+n.name]){
+      g+=`<path d="M${mx-w/2-11},${my-13} l5,-5 l6,6 l-3,3 z M${mx-w/2-11},${my-13} l-4,4"
+         fill="var(--good)" stroke="var(--good)" stroke-width="1.4" stroke-linejoin="round"/>`;
+    }
+    g+=`<g data-net="${n.id}">
+      <rect x="${mx-w/2}" y="${my-19}" width="${w}" height="13" rx="2.5"
+        fill="var(--panel)" stroke="${hot?'var(--accent)':'#2A3541'}" stroke-width="0.9"/>
+      ${TX(mx,my-9.5,n.name,{z:9,c:hot?'var(--accent)':'#93A6B6'})}</g>`;
+  });
+
+  /* in-progress wire */
+  if(draw){
+    const pts=draw.pts.concat(elbow(draw.pts[draw.pts.length-1],[cur.x,cur.y],draw.elbowH));
+    g+=`<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none"
+        stroke="var(--accent)" stroke-width="1.6" stroke-dasharray="5 3"/>`;
+    draw.pts.forEach(p=>{g+=`<circle cx="${p[0]}" cy="${p[1]}" r="2.6" fill="var(--accent)"/>`});
+    g+=`<circle cx="${cur.x}" cy="${cur.y}" r="3.4" fill="none" stroke="var(--accent)" stroke-width="1.4"/>`;
+  }
+  /* ghost of the component about to be placed, already rotated/mirrored */
+  if(placeKey){
+    const d=BY[placeKey], gc={x:cur.x,y:cur.y,r:placeRot,m:placeMir,key:placeKey,props:placeProps};
+    TXINV=placeKey==='text'?'':xfSVGi(gc);
+    g+=`<g transform="translate(${cur.x},${cur.y}) ${xfSVG(gc)}" opacity="0.45"
+         style="pointer-events:none">${d.draw(gc)}</g>`;
+    TXINV='';
+    d.pins.forEach((p,i)=>{const q=xf(gc,p.x,p.y);
+      g+=`<rect x="${q.x-2.8}" y="${q.y-2.8}" width="5.6" height="5.6" fill="none"
+         stroke="var(--open)" stroke-width="1.3" opacity="0.7"/>`});
+    const gb=bbOf(gc);
+    const B=[[gb[0],gb[1]],[gb[2],gb[1]],[gb[2],gb[3]],[gb[0],gb[3]]].map(([x,y])=>xf(gc,x,y));
+    const bx0=Math.min(...B.map(p=>p.x)),by0=Math.min(...B.map(p=>p.y));
+    const bx1=Math.max(...B.map(p=>p.x)),by1=Math.max(...B.map(p=>p.y));
+    g+=`<rect x="${bx0}" y="${by0}" width="${bx1-bx0}" height="${by1-by0}" rx="4"
+       fill="none" stroke="var(--accent)" stroke-width="${1/view.k}"
+       stroke-dasharray="${5/view.k} ${4/view.k}" opacity="0.6"/>`;
+    g+=`<circle cx="${cur.x}" cy="${cur.y}" r="${3/view.k}" fill="var(--accent)"/>`;
+  }
+  /* rubber-band selection, or the zoom-to-region box */
+  if(band){
+    const x=Math.min(band.x0,band.x1), y=Math.min(band.y0,band.y1);
+    const col=band.zoom?['rgba(233,200,74,0.07)','var(--wire)']
+             :band.del ?['rgba(224,96,90,0.10)','var(--bad)']
+                       :['rgba(79,208,227,0.07)','var(--accent)'];
+    g+=`<rect x="${x}" y="${y}" width="${Math.abs(band.x1-band.x0)}"
+       height="${Math.abs(band.y1-band.y0)}" fill="${col[0]}" stroke="${col[1]}"
+       stroke-width="${1/view.k}" stroke-dasharray="${4/view.k} ${3/view.k}"/>`;
+  }
+  g+=`</g>`;
+  cv.innerHTML=g;
+
+  meter(N); netPanel(N); drc(N);
+  document.getElementById('sMode').textContent=placeKey?'place':(draw?'routing':mode);
+  document.getElementById('sComp').textContent=comps.length;
+  document.getElementById('sWire').textContent=segs.length;
+  document.getElementById('sNet').textContent=N.length;
+  const nsel=selIds.size+selSegs.size;
+  document.getElementById('sSel').textContent=nsel||'\u2014';
+  document.getElementById('zoom').textContent=Math.round(view.k*100)+'%';
+  document.getElementById('hint').innerHTML =
+    placeKey ? 'click to place \u00b7 <b>r</b> rotates \u00b7 <b>shift+R</b> mirrors \u00b7 esc cancels'
+    : draw ? 'click to set a corner \u00b7 <b>r</b> flips the elbow \u00b7 click a pin or double-click to finish \u00b7 esc cancels'
+    : mode==='wire' ? 'click a pin, a wire, or empty space to start routing'
+    : mode==='zoom' ? 'drag a region to zoom into it \u00b7 <b>esc</b> returns to select'
+    : mode==='probe' ? 'click a net to probe it \u00b7 click again to remove \u00b7 <b>esc</b> goes back to the simulator'
+    : mode==='delete' ? 'click to delete \u00b7 drag a box to clear a region \u00b7 <b>esc</b> returns to select'
+    : 'drag to move or rubber-band \u00b7 shift-click adds \u00b7 <b>r</b> rotate \u00b7 <b>shift+R</b> mirror \u00b7 '
+      +'<b>q</b> properties \u00b7 <b>t</b> text \u00b7 <b>z</b> zoom \u00b7 arrows pan \u00b7 <b>ctrl+z</b> undo';
+}
+
+function meter(N){
+  const need=N.filter(n=>n.onchip.length), c=document.getElementById('mCnt');
+  c.textContent=need.length+'/10'; c.className='cnt'+(need.length>10?' over':'');
+  const taken={}; need.forEach(n=>{if(busOf[n.id])taken[busOf[n.id]]=n});
+  let h='';
+  for(let b=1;b<=10;b++){const n=taken[b],p=n&&n.onchip.some(m=>m.pcb===1||m.pcb===18);
+    h+=`<div class="slot ${n?(p?'pwr':'used'):''}" title="${n?n.name:'BUS'+b+' free'}">${b}</div>`}
+  document.getElementById('mSlots').innerHTML=h;
+}
+function netPanel(N){
+  const e=document.getElementById('nets');
+  if(!N.length){e.innerHTML=`<div style="padding:12px;color:var(--dim);font-size:11.5px">
+    No nets yet. Place devices, press <b>w</b>, then route between pins.</div>`;return}
+  e.innerHTML=N.map(n=>{
+    const b=busOf[n.id]||'';
+    const mem=n.mem.map(m=>`${BY[m.c.key].tag||BY[m.c.key].n}.${m.nm}${m.pcb!==null?
+      `<span style="color:#3D4956">/</span>${m.pcb}`:''}`).join('   ');
+    return `<div class="net ${hiNet===n.id?'hi':''}" data-net="${n.id}">
+      <div class="r1"><span class="nm ${n.onchip.length?'':'off'}" data-ren="${n.id}"
+        title="double-click to rename">${n.name}${n.onchip.length?'':' (off-chip)'}</span>
+      ${n.onchip.length?`<select class="${b?'':'unset'}" data-bus="${n.id}"><option value="">\u2014</option>
+        ${[1,2,3,4,5,6,7,8,9,10].map(x=>`<option value="${x}"${x==b?' selected':''}>BUS${x}</option>`).join('')}
+      </select>`:''}</div><div class="mem">${mem}</div></div>`}).join('');
+}
+
+/* ==========================================================================
+   Design rule checks. `problems()` returns the same list the panel shows, so
+   the exporter can refuse on exactly what the user was warned about.
+   ========================================================================== */
+function problems(N){
+  const m=[], need=N.filter(n=>n.onchip.length);
+  if(need.length>10)m.push(['e',`${need.length} on-chip nets, only 10 buses.`]);
+
+  const vdd=need.find(n=>n.onchip.some(x=>x.pcb===1)), vss=need.find(n=>n.onchip.some(x=>x.pcb===18));
+  if(vdd&&vss&&busOf[vdd.id]&&busOf[vdd.id]===busOf[vss.id])
+    m.push(['e',`${vdd.name}: chip_vdd and chip_vss on one bus \u2014 shorts the supply.`]);
+
+  const seen={};
+  need.forEach(n=>{const b=busOf[n.id];if(!b)return;
+    if(seen[b])m.push(['e',`BUS${b} claimed by both ${seen[b]} and ${n.name}.`]);seen[b]=n.name});
+
+  /* A PCB pin is one physical pad. Blocks legitimately share pads (47 substrate,
+     5 nwell, 19 nMOS bias, 68 pMOS bias) \u2014 placing both blocks is fine. But if
+     the shared pad ends up on two DIFFERENT buses, the exported bitstream closes
+     two switches on it and shorts those buses together. Silent on real hardware. */
+  const busOfPin={};
+  need.forEach(n=>{const b=busOf[n.id];if(!b)return;
+    n.onchip.forEach(mm=>{
+      const prev=busOfPin[mm.pcb];
+      if(prev&&prev.b!==b)
+        m.push(['e',`pin ${mm.pcb} is one pad but sits on BUS${prev.b} (${prev.net}) `+
+                    `and BUS${b} (${n.name}) \u2014 shorts those buses.`]);
+      else if(!prev) busOfPin[mm.pcb]={b,net:n.name};
+    })});
+
+  /* the same pad on two separate nets is already wrong before any bus is picked */
+  const netOfPin={};
+  need.forEach(n=>n.onchip.forEach(mm=>{
+    const prev=netOfPin[mm.pcb];
+    if(prev&&prev!==n.name)
+      m.push(['w',`pin ${mm.pcb} is one pad but appears on both ${prev} and ${n.name}.`]);
+    else netOfPin[mm.pcb]=n.name;
+  }));
+
+  const u=need.filter(n=>!busOf[n.id]);
+  if(u.length)m.push(['w','Unassigned: '+u.map(n=>n.name).join(', ')]);
+  const lone=comps.filter(c=>BY[c.key].pins.length&&
+    !BY[c.key].pins.some((_,i)=>N.some(n=>n.keys.includes(pinKey(c,i)))));
+  if(lone.length)m.push(['w',`Unconnected: ${lone.map(c=>BY[c.key].tag||BY[c.key].n).join(', ')}`]);
+  return m;
+}
+function drc(N){
+  const m=problems(N);
+  if(!m.length)m.push(['o',N.length?'No violations.':'Empty schematic.']);
+  document.getElementById('drc').innerHTML=m.map(x=>`<div class="msg ${x[0]}">${x[1]}</div>`).join('');
+}
+
+/* ==========================================================================
+   Instance labels. On-chip blocks are labelled with their exact subcircuit key
+   (the same string BitStream._subckt_pindict uses), so a busy sheet still says
+   what is actually on the die. Passives show their value, or "?" until set.
+   ========================================================================== */
+const VALKEY={res:['R','r','\u03a9'], cap:['C','c','F'], ind:['L','l','H'],
+               vdc:['V','v','V'], idc:['I','i','A']};
+function instLabel(c){
+  if(c.key==='text')return '';
+  const v=VALKEY[c.key];
+  if(v){
+    const raw=c.props&&c.props[v[1]];
+    if(!raw)return v[0]+' = ?';
+    /* "1000" reads as 1 kOhm, "200f" as 200 fF — normalise through the same
+       SI formatter the measurement panel uses, so the sheet carries units. */
+    const num=pv(raw);
+    return v[0]+' = '+(isFinite(num)&&num!==0?fv(num,v[2]):raw+' '+v[2]);
+  }
+  if(c.key==='vpulse') return 'pulse';
+  if(c.key==='vpwl')   return 'pwl';
+  if(c.key==='vsin'){
+    const f=c.props&&c.props.freq, a=c.props&&c.props.va;
+    return 'sin '+(a?fv(pv(a),'V'):'?')+' @ '+(f?fv(pv(f),'Hz'):'?');
+  }
+  if(c.key==='noconn') return '';
+  if(c.key==='gnd'||c.key==='chip_vdd'||c.key==='chip_vss') return '';
+  return c.key;
+}
+
+/* ==========================================================================
+   Hit testing. Done geometrically rather than by SVG z-order, because each
+   symbol carries a large transparent bounding rect that would otherwise swallow
+   clicks meant for a wire routed past it. Wires win ties.
+   ========================================================================== */
+function distToSeg(px,py,s){
+  const dx=s.x2-s.x1, dy=s.y2-s.y1, L=dx*dx+dy*dy;
+  if(L<EPS) return Math.hypot(px-s.x1,py-s.y1);
+  let t=((px-s.x1)*dx+(py-s.y1)*dy)/L;
+  t=Math.max(0,Math.min(1,t));
+  return Math.hypot(px-(s.x1+t*dx), py-(s.y1+t*dy));
+}
+function hitTest(w){
+  const tol=7/view.k;
+  let bi=-1, bd=tol;
+  segs.forEach((s,i)=>{const d=distToSeg(w.x,w.y,s); if(d<=bd){bd=d;bi=i}});
+  if(bi>=0) return {kind:'seg',i:bi};
+  /* among devices whose box contains the point, the smallest one wins, so a
+     compact symbol sitting inside a mirror array's footprint stays reachable */
+  let best=null,ba=Infinity;
+  comps.forEach(c=>{const B=bbox(c);
+    if(w.x>=B[0]&&w.x<=B[2]&&w.y>=B[1]&&w.y<=B[3]){
+      const a=(B[2]-B[0])*(B[3]-B[1]); if(a<ba){ba=a;best=c.id}
+    }});
+  return best!==null?{kind:'dev',id:best}:null;
+}
+const sameHit=(a,b)=>(!a&&!b)||(!!a&&!!b&&a.kind===b.kind&&a.id===b.id&&a.i===b.i);
+
+/* ==========================================================================
+   Snapping
+   ========================================================================== */
+function snapTarget(w){
+  let best=null, bd=14/view.k;
+  comps.forEach(c=>BY[c.key].pins.forEach((p,i)=>{
+    const q=pinPos(c,i), d=Math.hypot(q.x-w.x,q.y-w.y);
+    if(d<bd){bd=d;best={x:q.x,y:q.y,pin:{c:c.id,i},kind:'pin'}}
+  }));
+  if(best) return best;
+  for(let i=0;i<segs.length;i++){
+    const s=segs[i];
+    const q = Math.abs(s.x1-s.x2)<EPS
+      ? {x:s.x1,y:Math.max(Math.min(w.y,Math.max(s.y1,s.y2)),Math.min(s.y1,s.y2))}
+      : {x:Math.max(Math.min(w.x,Math.max(s.x1,s.x2)),Math.min(s.x1,s.x2)),y:s.y1};
+    if(Math.hypot(q.x-w.x,q.y-w.y)<10/view.k) return {x:sn(q.x),y:sn(q.y),kind:'wire'};
+  }
+  return {x:sn(w.x),y:sn(w.y),kind:'grid'};
+}
+function pushPts(pts){
+  for(let i=0;i<pts.length-1;i++){
+    const [x1,y1]=pts[i],[x2,y2]=pts[i+1];
+    if(x1===x2&&y1===y2)continue;
+    segs.push({x1,y1,x2,y2});
+  }
+}
+function endDraw(keep){
+  const drew=draw&&keep&&draw.pts.length>1;
+  if(drew) pushPts(draw.pts);
+  draw=null; if(drew)commit(); render();
+}
+
+/* Dragging a device carries the wire ends that land on its pins. Mid-drag a
+   segment may go diagonal; this squares it back up so the sheet stays orthogonal
+   and T-junction detection (which is H/V only) keeps working.
+
+   The corner matters. If the leg leaving the dragged end runs PARALLEL to the
+   drag, it retraces the ground the device just swept and can land on top of
+   another wire — a silent short. Leaving perpendicular avoids that. */
+function orthogonalize(moved,dx,dy,target){
+  const horiz=Math.abs(dx)>=Math.abs(dy);
+  const keep=[], pending=[];
+  const from=new Map();                        // original segment -> pieces it became
+  segs.forEach((s,i)=>{
+    const ddx=s.x2-s.x1, ddy=s.y2-s.y1;
+    if(Math.abs(ddx)<EPS||Math.abs(ddy)<EPS){
+      if(Math.abs(ddx)>EPS||Math.abs(ddy)>EPS){keep.push(s);from.set(s,[s])}  // drop zero-length
+      return;
+    }
+    const m1=moved&&moved.get(s)===1, m2=moved&&moved.get(s)===2;
+    let cands;
+    if(m1!==m2){
+      const mx=m1?s.x1:s.x2, my=m1?s.y1:s.y2;                // the end that moved
+      const ax=m1?s.x2:s.x1, ay=m1?s.y2:s.y1;                // the end that stayed
+      /* preferred first: leave the moved end perpendicular to the drag, so the
+         wire does not retrace the ground the device just swept */
+      cands = horiz ? [{x:mx,y:ay},{x:ax,y:my}] : [{x:ax,y:my},{x:mx,y:ay}];
+    } else {
+      cands = Math.abs(ddy)>Math.abs(ddx)?[{x:s.x1,y:s.y2},{x:s.x2,y:s.y1}]
+                                         :[{x:s.x2,y:s.y1},{x:s.x1,y:s.y2}];
+    }
+    pending.push({s,cands});
+  });
+  if(!pending.length){segs=keep;return from}
+
+  const build=(sel,record)=>{
+    const r=keep.slice();
+    pending.forEach((p,j)=>{const c=sel[j], mine=[];
+      if(p.s.x1!==c.x||p.s.y1!==c.y) mine.push({x1:p.s.x1,y1:p.s.y1,x2:c.x,y2:c.y});
+      if(p.s.x2!==c.x||p.s.y2!==c.y) mine.push({x1:c.x,y1:c.y,x2:p.s.x2,y2:p.s.y2});
+      mine.forEach(m=>r.push(m));
+      if(record)from.set(p.s,mine);
+    });
+    return r;
+  };
+  /* No fixed geometric rule works for both elbow directions — whichever leg you
+     favour, some layout exists where it lands on an unrelated wire and shorts it.
+     So try them and keep the choice that actually preserves the circuit. */
+  const score=sel=>{
+    if(!target)return 0;
+    const saveSeg=segs, saveNm=nameOfPin, saveNext=nextNet;
+    segs=build(sel);
+    const s=connSig();
+    segs=saveSeg; nameOfPin=saveNm; nextNet=saveNext;   // connSig() calls nets(), which renames
+    let diff=0;
+    new Set([...Object.keys(target),...Object.keys(s)]).forEach(k=>{
+      if((target[k]||'')!==(s[k]||''))diff++;
+    });
+    return diff;
+  };
+  const chosen=pending.map(p=>p.cands[0]);
+  let bestScore=score(chosen);
+  for(let j=0;j<pending.length&&bestScore>0;j++){
+    const alt=chosen.slice(); alt[j]=pending[j].cands[1];
+    const sc=score(alt);
+    if(sc<bestScore){bestScore=sc;chosen[j]=pending[j].cands[1];}
+  }
+  segs=build(chosen,true);
+  return from;
+}
+/* A tap is a wire end sitting on the middle of another wire. When that host wire
+   is reshaped by a drag, re-seat the tap on the host's NEW shape — the nearest
+   point on it — instead of assuming the host translated with the cursor. */
+function repairTaps(taps,from){
+  taps.forEach(t=>{
+    const host=from.get(t.host)||[t.host];
+    let bp=null,bd=Infinity;
+    host.forEach(h=>{
+      const dx=h.x2-h.x1, dy=h.y2-h.y1, L=dx*dx+dy*dy;
+      let u=L<EPS?0:((t.px-h.x1)*dx+(t.py-h.y1)*dy)/L;
+      u=Math.max(0,Math.min(1,u));
+      const qx=h.x1+u*dx, qy=h.y1+u*dy, d=Math.hypot(qx-t.px,qy-t.py);
+      if(d<bd){bd=d;bp={x:sn(qx),y:sn(qy)}}
+    });
+    if(!bp)return;
+    (from.get(t.s)||[t.s]).forEach(p=>{
+      if(Math.abs(p.x1-t.px)<EPS&&Math.abs(p.y1-t.py)<EPS){p.x1=bp.x;p.y1=bp.y}
+      if(Math.abs(p.x2-t.px)<EPS&&Math.abs(p.y2-t.py)<EPS){p.x2=bp.x;p.y2=bp.y}
+    });
+  });
+}
+/* Wire endpoints that must travel with a moving selection:
+   1. endpoints sitting exactly on one of its pins;
+   2. endpoints T-junctioned onto a segment that is itself being dragged —
+      without this the T quietly slides off the end of the wire it was tapping. */
+function grabEnds(ids){
+  const pw=[];
+  comps.filter(c=>ids.has(c.id)).forEach(c=>BY[c.key].pins.forEach((_,i)=>pw.push(pinPos(c,i))));
+  const hit=(x,y)=>pw.some(p=>Math.abs(p.x-x)<EPS&&Math.abs(p.y-y)<EPS);
+  const eps=[];
+  segs.forEach(s=>{ if(hit(s.x1,s.y1))eps.push({s,end:1,x:s.x1,y:s.y1});
+                    if(hit(s.x2,s.y2))eps.push({s,end:2,x:s.x2,y:s.y2}); });
+  return eps;
+}
+/* Wire ends tapping the MIDDLE of a wire that is itself about to be reshaped.
+   Strictly interior: two wires sharing a corner are a bend, not a tap. */
+function grabTaps(eps){
+  const moving=new Set(eps.map(o=>o.s));
+  const interior=(x,y,o)=>onSeg(x,y,o)&&
+    !((Math.abs(o.x1-x)<EPS&&Math.abs(o.y1-y)<EPS)||(Math.abs(o.x2-x)<EPS&&Math.abs(o.y2-y)<EPS));
+  const held=new Set(eps.map(o=>o.s+':'+o.end));
+  const taps=[];
+  segs.forEach(s=>{
+    [[s.x1,s.y1,1],[s.x2,s.y2,2]].forEach(([x,y,end])=>{
+      if(held.has(s+':'+end))return;
+      if(eps.some(o=>o.s===s&&o.end===end))return;
+      for(const o of moving) if(o!==s&&interior(x,y,o)){taps.push({s,end,host:o,px:x,py:y});break}
+    });
+  });
+  return taps;
+}
+/* pin -> net-membership fingerprint, so a move that rewires the circuit
+   behind the user's back can be reported instead of just happening */
+function connSig(){
+  const sig={};
+  nets().forEach(n=>n.mem.forEach(m=>{sig[m.key]=n.keys.slice().sort().join('|')}));
+  return sig;
+}
+/* Each rubber-banded drag can split a wire into two. Left alone the sheet slowly
+   fills with collinear fragments, so fuse them back — but only where the joint
+   is not a junction (no pin, no third wire), where fusing cannot change anything. */
+function mergeCollinear(){
+  const pinAt=(x,y)=>comps.some(c=>BY[c.key].pins.some((_,i)=>{
+    const p=pinPos(c,i);return Math.abs(p.x-x)<EPS&&Math.abs(p.y-y)<EPS}));
+  for(let guard=0;guard<400;guard++){
+    let merged=false;
+    outer:
+    for(let i=0;i<segs.length;i++)for(let j=i+1;j<segs.length;j++){
+      const a=segs[i],b=segs[j];
+      const aH=Math.abs(a.y1-a.y2)<EPS,bH=Math.abs(b.y1-b.y2)<EPS;
+      const aV=Math.abs(a.x1-a.x2)<EPS,bV=Math.abs(b.x1-b.x2)<EPS;
+      if(!((aH&&bH&&Math.abs(a.y1-b.y1)<EPS)||(aV&&bV&&Math.abs(a.x1-b.x1)<EPS)))continue;
+      const ae=[[a.x1,a.y1],[a.x2,a.y2]],be=[[b.x1,b.y1],[b.x2,b.y2]];
+      let pt=null;
+      for(const e of ae)for(const f of be)
+        if(Math.abs(e[0]-f[0])<EPS&&Math.abs(e[1]-f[1])<EPS)pt=e;
+      if(!pt||pinAt(pt[0],pt[1]))continue;
+      let touch=0;
+      segs.forEach((s,k)=>{if(k!==i&&k!==j&&onSeg(pt[0],pt[1],s))touch++});
+      if(touch)continue;
+      const outer=[...ae,...be].filter(p=>Math.abs(p[0]-pt[0])>=EPS||Math.abs(p[1]-pt[1])>=EPS);
+      if(outer.length!==2)continue;
+      segs.splice(j,1);segs.splice(i,1);
+      segs.push({x1:outer[0][0],y1:outer[0][1],x2:outer[1][0],y2:outer[1][1]});
+      merged=true;break outer;
+    }
+    if(!merged)break;
+  }
+}
+const sameConn=(a,b)=>{
+  const k=new Set([...Object.keys(a),...Object.keys(b)]);
+  for(const x of k) if((a[x]||'')!==(b[x]||''))return false;
+  return true;
+};
+function reportRewire(before){
+  const after=connSig(), changed=[];
+  comps.forEach(c=>BY[c.key].pins.forEach((p,i)=>{
+    const k=pinKey(c,i);
+    if((before[k]||'')!==(after[k]||''))
+      changed.push((BY[c.key].tag||BY[c.key].n)+'.'+p.nm);
+  }));
+  if(changed.length) toast('⚠ move changed connections on: '+changed.slice(0,6).join(', ')
+    +(changed.length>6?` +${changed.length-6} more`:''));
+}
+
+/* ==========================================================================
+   Palette
+   ========================================================================== */
+(function(){
+  const gs=[...new Set(LIB.map(c=>c.g))];
+  document.getElementById('left').innerHTML=gs.map(g=>`<div class="ph">${g}</div>`+
+    LIB.filter(c=>c.g===g).map(c=>`<div class="item" data-add="${c.k}">
+      <span>${c.n}</span><span class="mult">${c.pins.filter(p=>p.pcb!==null).length||'tb'}</span></div>`).join('')
+  ).join('');
+})();
+
+/* ==========================================================================
+   Events
+   ========================================================================== */
+/* Cursors are inline SVG data URIs so the file stays self-contained. */
+const CUR={
+  select:'default',
+  wire:'crosshair',
+  place:'crosshair',
+  /* The canvas is near-black, so every cursor is drawn as a bright halo with a
+     coloured core. A dark outline alone is invisible against the sheet. */
+  zoom:"url('data:image/svg+xml;utf8,"+encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">
+       <g fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" stroke-opacity="0.95">
+         <circle cx="11" cy="11" r="7"/><path d="M16.1 16.1 L23.5 23.5"/></g>
+       <g fill="none" stroke="#111820" stroke-width="2.6" stroke-linecap="round">
+         <circle cx="11" cy="11" r="7"/><path d="M16.1 16.1 L23.5 23.5"/></g>
+     </svg>`)+"') 11 11, zoom-in",
+  delete:"url('data:image/svg+xml;utf8,"+encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26">
+       <g stroke="#FFFFFF" stroke-width="6.2" stroke-linecap="round" stroke-opacity="0.95">
+         <path d="M6 6 L19 19"/><path d="M19 6 L6 19"/></g>
+       <g stroke="#E0605A" stroke-width="3.2" stroke-linecap="round">
+         <path d="M6 6 L19 19"/><path d="M19 6 L6 19"/></g>
+     </svg>`)+"') 12 12, not-allowed",
+  probe:"url('data:image/svg+xml;utf8,"+encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">
+       <g stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-opacity="0.95" fill="none">
+         <path d="M4 24 L13 15"/><path d="M12 8 L20 16 L16 20 L8 12 Z"/></g>
+       <g stroke="#7FD68A" stroke-width="2.6" stroke-linecap="round" fill="none">
+         <path d="M4 24 L13 15"/><path d="M12 8 L20 16 L16 20 L8 12 Z"/></g>
+     </svg>`)+"') 4 24, crosshair",
+  text:"url('data:image/svg+xml;utf8,"+encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26">
+       <g stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-opacity="0.95">
+         <path d="M4 5 L18 5"/><path d="M11 5 L11 21"/></g>
+       <g stroke="#4FD0E3" stroke-width="2.8" stroke-linecap="round">
+         <path d="M4 5 L18 5"/><path d="M11 5 L11 21"/></g>
+     </svg>`)+"') 11 5, text"
+};
+function applyCursor(){
+  cv.style.cursor = spaceDown ? 'grab'
+    : placeKey ? (placeKey==='text'?CUR.text:CUR.place)
+    : (CUR[mode]||'default');
+}
+function setMode(m,keepPlace){
+  mode=m; draw=null; band=null; hover=null;
+  if(!keepPlace){placeKey=null;placeRot=0;placeMir=0;placeProps=null;
+    document.querySelectorAll('.item.on').forEach(e=>e.classList.remove('on'));}
+  [['bSel','select'],['bWire','wire'],['bZoom','zoom'],['bDel','delete']]
+    .forEach(([id,mm])=>document.getElementById(id).classList.toggle('on',m===mm));
+  applyCursor(); render();
+}
+document.getElementById('bSel').onclick=()=>setMode('select');
+document.getElementById('bWire').onclick=()=>setMode('wire');
+document.getElementById('bZoom').onclick=()=>setMode('zoom');
+document.getElementById('left').onclick=e=>{
+  const it=e.target.closest('[data-add]');if(!it)return;
+  document.querySelectorAll('.item.on').forEach(x=>x.classList.remove('on'));
+  it.classList.add('on');
+  if(it.dataset.add==='text'){
+    document.querySelectorAll('.item.on').forEach(x=>x.classList.remove('on'));
+    openTextDialog(null); return;
+  }
+  placeKey=it.dataset.add; placeRot=0; placeMir=0; placeProps=null;
+  mode='select'; draw=null;
+  [['bSel','select'],['bWire','wire'],['bZoom','zoom'],['bDel','delete']]
+    .forEach(([id,mm])=>document.getElementById(id).classList.toggle('on',mode===mm));
+  applyCursor(); render();};
+
+let spaceDown=false;
+cv.addEventListener('contextmenu',e=>{e.preventDefault();if(draw)endDraw(true)});
+cv.addEventListener('mousedown',e=>{
+  const r=cv.getBoundingClientRect(), w=toWorld(e.clientX-r.left,e.clientY-r.top);
+  /* middle button, right button, or space+left all pan — trackpads have no middle click */
+  if(e.button===1||e.button===2||(e.button===0&&spaceDown)){
+    pan={x:e.clientX,y:e.clientY,vx:view.x,vy:view.y};e.preventDefault();return}
+  if(e.button!==0)return;
+
+  if(placeKey){
+    if(!isTB(placeKey)&&comps.some(c=>c.key===placeKey)){
+      alert('This device exists once on the die and is already placed.');return}
+    comps.push({id:uid++,key:placeKey,x:sn(w.x),y:sn(w.y),r:placeRot,m:placeMir,
+                ...(placeProps?{props:{...placeProps}}:{})});
+    if(placeKey==='text'){placeKey=null;placeProps=null;placeRot=0;placeMir=0}
+    else if(!isTB(placeKey)){placeKey=null;placeRot=0;placeMir=0;
+      document.querySelectorAll('.item.on').forEach(x=>x.classList.remove('on'))}
+    applyCursor();commit();render();return;
+  }
+  if(mode==='zoom'){ band={x0:w.x,y0:w.y,x1:w.x,y1:w.y,zoom:true}; render(); return; }
+  if(mode==='probe'){
+    /* click a wire (or a device pin) to mark that net for plotting */
+    const h=hitTest(w);
+    let name=null;
+    if(h&&h.kind==='seg'){
+      const {find}=connectivity();
+      const n=nets().find(x=>x.root===find('s'+h.i+'a'));
+      if(n)name=n.name;
+    } else if(h&&h.kind==='dev'){
+      const c=comps.find(x=>x.id===h.id);
+      let bd=1e9,bi=-1;
+      BY[c.key].pins.forEach((_,i)=>{const q=pinPos(c,i);
+        const d=Math.hypot(q.x-w.x,q.y-w.y); if(d<bd){bd=d;bi=i}});
+      if(bi>=0&&bd<40){const n=nets().find(x=>x.keys.includes(pinKey(c,bi)));if(n)name=n.name}
+    }
+    if(name){ const k='V:'+name; probe[k]=!probe[k]; probeAuto=false;
+              toast((probe[k]?'probing ':'removed probe on ')+name); }
+    render();return;
+  }
+  if(mode==='delete'){
+    /* a drag sweeps a region, a plain click deletes what is under the cursor;
+       which one it was is decided on mouseup by how far the pointer travelled */
+    band={x0:w.x,y0:w.y,x1:w.x,y1:w.y,del:true};
+    render();return;
+  }
+  if(mode==='wire'){
+    const t=snapTarget(w);
+    if(!draw){draw={pts:[[t.x,t.y]],elbowH:true};cur={x:t.x,y:t.y};render();return}
+    const pts=elbow(draw.pts[draw.pts.length-1],[t.x,t.y],draw.elbowH);
+    draw.pts=draw.pts.concat(pts);
+    if(t.kind==='pin'||t.kind==='wire'){endDraw(true);return}
+    render();return;
+  }
+
+  const addTo=e.shiftKey||e.metaKey||e.ctrlKey;
+  const nl=e.target.closest('[data-net]');
+  if(nl){hiNet=hiNet===nl.dataset.net?null:nl.dataset.net;render();return}
+  const h=hitTest(w);
+  if(h&&h.kind==='seg'){const i=h.i;
+    if(!addTo){selIds.clear();selSegs.clear()}
+    selSegs.has(i)?selSegs.delete(i):selSegs.add(i);
+    render();return}
+  if(h&&h.kind==='dev'){
+    const id=h.id;
+    if(addTo){ selIds.has(id)?selIds.delete(id):selIds.add(id); render(); return }
+    if(!selIds.has(id)){selIds=new Set([id]);selSegs.clear()}
+    const eps=grabEnds(selIds);
+    drag={ox:w.x,oy:w.y,moved:false,dx:0,dy:0,sig:connSig(),
+           segs0:segs.map(x=>({...x})),
+           start:comps.filter(c=>selIds.has(c.id)).map(c=>({c,x:c.x,y:c.y})),
+           eps, taps:grabTaps(eps),
+           segStart:[...selSegs].map(i=>({i,s:{...segs[i]}}))};
+    render();return}
+  /* empty space: start a rubber band */
+  if(!addTo){selIds.clear();selSegs.clear()}
+  band={x0:w.x,y0:w.y,x1:w.x,y1:w.y,add:addTo};
+  hiNet=null;render();
+});
+cv.addEventListener('dblclick',e=>{
+  e.preventDefault();
+  if(draw){endDraw(true);return}
+  const dv=e.target.closest('[data-dev]');
+  if(dv){const c=comps.find(x=>x.id==dv.dataset.dev); if(c&&typeof openProps==='function')openProps(c);}
+});
+window.addEventListener('mousemove',e=>{
+  const r=cv.getBoundingClientRect(), w=toWorld(e.clientX-r.left,e.clientY-r.top);
+  if(pan){view.x=pan.vx+(e.clientX-pan.x);view.y=pan.vy+(e.clientY-pan.y);render();return}
+  if(band){band.x1=w.x;band.y1=w.y;
+    if(band.del){const nh=hitTest(w);if(!sameHit(nh,hover))hover=nh}
+    render();return}
+  if(drag){
+    const dx=sn(w.x-drag.ox), dy=sn(w.y-drag.oy);
+    if(dx||dy)drag.moved=true;
+    drag.dx=dx; drag.dy=dy;
+    drag.start.forEach(o=>{o.c.x=o.x+dx;o.c.y=o.y+dy});
+    drag.eps.forEach(o=>{
+      if(o.end===1){o.s.x1=o.x+dx;o.s.y1=o.y+dy} else {o.s.x2=o.x+dx;o.s.y2=o.y+dy}});
+    drag.segStart.forEach(o=>{const s=segs[o.i];      // selected wires move too
+      s.x1=o.s.x1+dx;s.y1=o.s.y1+dy;s.x2=o.s.x2+dx;s.y2=o.s.y2+dy});
+    render();return;
+  }
+  if(placeKey){                                  // ghost follows the cursor
+    const nx=sn(w.x), ny=sn(w.y);
+    if(nx!==cur.x||ny!==cur.y){cur={x:nx,y:ny};render()}
+    return;
+  }
+  if(mode==='wire'||draw){
+    const t=snapTarget(w);
+    cur={x:t.x,y:t.y};
+    hoverPin=t.pin?{c:t.pin.c,i:t.pin.i}:null;
+    render();return;
+  }
+  /* select and delete modes highlight whatever is under the cursor, so it is
+     always clear what a click is about to act on */
+  if(mode==='select'||mode==='delete'){
+    const nh=hitTest(w);
+    if(!sameHit(nh,hover)){hover=nh;render()}
+    return;
+  }
+  const oh=hover; hover=null; hoverPin=null; if(oh)render();
+});
+function zoomTo(x0,y0,x1,y1){
+  const W=cv.clientWidth,H=cv.clientHeight,pad=24;
+  if(W<100||H<100)return;            // no layout yet — don't wreck the view
+  view.k=Math.max(.05,Math.min(8,Math.min((W-pad*2)/(x1-x0||1),(H-pad*2)/(y1-y0||1))));
+  view.x=W/2-(x0+x1)/2*view.k; view.y=H/2-(y0+y1)/2*view.k;
+}
+window.addEventListener('mouseup',()=>{
+  if(band){
+    const x0=Math.min(band.x0,band.x1),x1=Math.max(band.x0,band.x1);
+    const y0=Math.min(band.y0,band.y1),y1=Math.max(band.y0,band.y1);
+    if(band.zoom){
+      if(x1-x0>4&&y1-y0>4) zoomTo(x0,y0,x1,y1);
+      band=null; render(); return;
+    }
+    if(band.del){
+      const drag=(x1-x0>4||y1-y0>4);
+      if(drag){
+        const inBox=(a,b,c2,d2)=>a>=x0&&c2<=x1&&b>=y0&&d2<=y1;
+        const kill=new Set();
+        comps.forEach(c=>{const B=bbox(c); if(inBox(B[0],B[1],B[2],B[3]))kill.add(c.id)});
+        const ks=new Set();
+        segs.forEach((s,i)=>{ if(inBox(Math.min(s.x1,s.x2),Math.min(s.y1,s.y2),
+                                      Math.max(s.x1,s.x2),Math.max(s.y1,s.y2)))ks.add(i)});
+        if(kill.size||ks.size){
+          comps=comps.filter(c=>!kill.has(c.id));
+          segs=segs.filter((_,i)=>!ks.has(i));
+          commit();
+        }
+      } else {
+        const h=hitTest({x:band.x0,y:band.y0});
+        if(h){ if(h.kind==='seg')segs.splice(h.i,1); else comps=comps.filter(c=>c.id!==h.id);
+               commit(); }
+      }
+      band=null; hover=null; render(); return;
+    }
+    if(x1-x0>3||y1-y0>3){
+      comps.forEach(c=>{const B=bbox(c);
+        if(B[0]>=x0&&B[2]<=x1&&B[1]>=y0&&B[3]<=y1)selIds.add(c.id)});
+      segs.forEach((s,i)=>{
+        if(Math.min(s.x1,s.x2)>=x0&&Math.max(s.x1,s.x2)<=x1&&
+           Math.min(s.y1,s.y2)>=y0&&Math.max(s.y1,s.y2)<=y1)selSegs.add(i)});
+    }
+    band=null;render();
+  }
+  if(drag){
+    const d=drag; drag=null;
+    if(d.moved){
+      const movedMap=new Map(); d.eps.forEach(o=>movedMap.set(o.s,o.end));
+      const from=orthogonalize(movedMap,d.dx,d.dy,d.sig);
+      repairTaps(d.taps,from);
+      orthogonalize(null,d.dx,d.dy,d.sig);      // square up anything the taps bent
+      /* Rubber-banding wires through arbitrary topology cannot always preserve
+         the circuit. Rather than ship a heuristic that is silently wrong in the
+         cases it cannot handle, verify: if the reshaped wires would change any
+         connection, discard the reshaping and leave the wires where they were.
+         The device still moves, its pins visibly detach (red open-pin markers),
+         and the user is told. Either connectivity is exactly preserved, or the
+         break is obvious — never a silent short. */
+      if(sameConn(d.sig,connSig())){
+        mergeCollinear();                       // fuse the fragments the split left
+        if(!sameConn(d.sig,connSig())) segs=d.segs0;   // paranoia: merge must be neutral
+      } else {
+        segs=d.segs0;
+        toast(sameConn(d.sig,connSig())
+          ? 'wires left in place \u2014 reconnect the pins that came loose'
+          : '\u26a0 that move changed connections \u2014 check the Nets panel');
+      }
+      selSegs.clear(); commit(); render();
+    } else render();
+  }
+  pan=null;
+});
+cv.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const r=cv.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
+  const w=toWorld(mx,my), f=e.deltaY<0?1.12:1/1.12;
+  view.k=Math.max(.2,Math.min(3,view.k*f));
+  view.x=mx-w.x*view.k; view.y=my-w.y*view.k; render();
+},{passive:false});
+
+document.getElementById('right').addEventListener('change',e=>{
+  const s=e.target.closest('[data-bus]');if(!s)return;
+  if(s.value)busOf[s.dataset.bus]=+s.value; else delete busOf[s.dataset.bus];
+  commit();render()});
+document.getElementById('right').addEventListener('click',e=>{
+  const n=e.target.closest('[data-net]');if(!n||e.target.tagName==='SELECT')return;
+  hiNet=hiNet===n.dataset.net?null:n.dataset.net;render()});
+document.getElementById('right').addEventListener('dblclick',e=>{
+  const t=e.target.closest('[data-ren]');if(!t)return;
+  const id=t.dataset.ren, cur=alias[id]||id;
+  const v=prompt('Net name (letters, digits and _; blank restores '+id+')',cur);
+  if(v===null)return;
+  const nm=v.trim();
+  if(!nm||nm===id){delete alias[id];commit();render();return}
+  if(!/^[A-Za-z_][A-Za-z0-9_]*$/.test(nm)){alert('Use a letter or _ first, then letters, digits or _.');return}
+  /* cir_to_connections detects buses by a literal "BUS" prefix on the net name,
+     so a net called BUSY or BUS_A would be misread as a bus assignment. */
+  if(/^BUS/i.test(nm)){alert('Names starting with "BUS" are reserved by the MOSbius netlist reader.');return}
+  if(Object.entries(alias).some(([k,v2])=>k!==id&&v2===nm)||
+     (nm!==id&&/^net\d+$/.test(nm))){alert('That name is already in use.');return}
+  alias[id]=nm;commit();render();
+});
+
+function del(){
+  if(!selIds.size&&!selSegs.size)return;
+  if(selSegs.size){
+    const kill=new Set(selSegs);
+    segs=segs.filter((_,i)=>!kill.has(i));
+    selSegs.clear();
+  }
+  if(selIds.size){ comps=comps.filter(c=>!selIds.has(c.id)); selIds.clear(); }
+  commit();render();
+}
+document.getElementById('bDel').onclick=()=>{
+  if(selIds.size||selSegs.size)del(); else setMode(mode==='delete'?'select':'delete');
+};
+
+/* rotate / mirror about each device's own origin */
+function turn(deg){
+  if(!selIds.size)return;
+  comps.forEach(c=>{if(selIds.has(c.id))c.r=(((c.r||0)+deg)%360+360)%360});
+  commit();render();
+}
+function flip(){
+  if(!selIds.size)return;
+  comps.forEach(c=>{if(selIds.has(c.id))c.m=c.m?0:1});
+  commit();render();
+}
+function selectAll(){ selIds=new Set(comps.map(c=>c.id));
+  selSegs=new Set(segs.map((_,i)=>i)); render(); }
+
+window.addEventListener('keydown',e=>{
+  if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))return;
+  const k=e.key.toLowerCase(), mod=e.metaKey||e.ctrlKey;
+  if(e.code==='Space'&&!spaceDown){spaceDown=true;e.preventDefault();applyCursor()}
+  if(mod&&k==='z'){e.preventDefault();e.shiftKey?redo():undo();return}
+  if(mod&&k==='y'){e.preventDefault();redo();return}
+  if(mod&&k==='a'){e.preventDefault();selectAll();return}
+  if(mod&&k==='s'){e.preventDefault();saveFile();return}
+  if(mod&&k==='o'){e.preventDefault();document.getElementById('fOpen').click();return}
+  if(mod)return;
+
+  /* arrow keys nudge the view a fixed fraction of the window */
+  if(e.key.startsWith('Arrow')){
+    e.preventDefault();
+    const step=(e.shiftKey?0.45:0.15)*(e.key==='ArrowLeft'||e.key==='ArrowRight'?cv.clientWidth:cv.clientHeight);
+    if(e.key==='ArrowLeft') view.x+=step;
+    if(e.key==='ArrowRight')view.x-=step;
+    if(e.key==='ArrowUp')   view.y+=step;
+    if(e.key==='ArrowDown') view.y-=step;
+    render();return;
+  }
+  /* escape always lands back in select mode */
+  if(e.key==='Escape'){
+    if(mode==='probe'&&probeReturn){probeReturn=false;setMode('select');openSim();return}
+    if(draw||placeKey||band){draw=null;band=null;placeKey=null;placeRot=0;placeMir=0;placeProps=null;
+      document.querySelectorAll('.item.on').forEach(x=>x.classList.remove('on'));}
+    else {selSegs.clear();selIds.clear()}
+    setMode('select');return;
+  }
+  if(e.key==='Delete'||e.key==='Backspace'){
+    e.preventDefault();
+    /* with a selection, delete it; with nothing selected, arm the delete cursor */
+    if(selIds.size||selSegs.size) del(); else setMode(mode==='delete'?'select':'delete');
+    return;
+  }
+  if(k==='r'){
+    if(draw){draw.elbowH=!draw.elbowH;render()}
+    else if(placeKey){
+      /* mirroring a text note is meaningless, so shift+R just rotates it too */
+      if(e.shiftKey&&placeKey!=='text'){placeMir=placeMir?0:1}
+      else {placeRot=(placeRot+90)%360}
+      render();
+    }
+    else if(e.shiftKey)flip(); else turn(90);
+    return;
+  }
+  if(k==='m'&&!draw){ if(placeKey){placeMir=placeMir?0:1;render()} else flip(); return }
+  if(k==='t'&&!draw&&!placeKey){ openTextDialog(null); return }
+  if(k==='q'){ openPropsForSelection(); return }
+  if(k==='z')setMode('zoom');
+  if(k==='w')setMode('wire');
+  if(k==='s')setMode('select');
+  if(k==='f')fit();
+});
+window.addEventListener('keyup',e=>{
+  if(e.code==='Space'){spaceDown=false;applyCursor()}
+});
+
+function fit(){
+  if(!comps.length&&!segs.length){view={x:60,y:40,k:.8};render();return}
+  let a=1e9,b=1e9,c=-1e9,d=-1e9;
+  comps.forEach(o=>{const B=bbox(o);
+    a=Math.min(a,B[0]);b=Math.min(b,B[1]);c=Math.max(c,B[2]);d=Math.max(d,B[3])});
+  segs.forEach(s=>{a=Math.min(a,s.x1,s.x2);b=Math.min(b,s.y1,s.y2);
+    c=Math.max(c,s.x1,s.x2);d=Math.max(d,s.y1,s.y2)});
+  const W=cv.clientWidth,H=cv.clientHeight,pad=60;
+  if(W<100||H<100)return;            // no layout yet — don't wreck the view
+  view.k=Math.max(.2,Math.min(2,Math.min((W-pad*2)/(c-a||1),(H-pad*2)/(d-b||1))));
+  view.x=W/2-(a+c)/2*view.k; view.y=H/2-(b+d)/2*view.k; render();
+}
+document.getElementById('bFit').onclick=fit;
+
+document.getElementById('bAuto').onclick=()=>{
+  const N=nets().filter(n=>n.onchip.length);
+  if(N.length>10){alert(`${N.length} on-chip nets, only 10 buses available.`);return}
+  busOf={}; const pw=n=>n.onchip.some(m=>m.pcb===1||m.pcb===18);
+  let b=1;[...N.filter(n=>!pw(n)),...N.filter(pw)].forEach(n=>busOf[n.id]=b++);
+  commit();render();
+};
+document.getElementById('bClr').onclick=()=>{
+  if((comps.length||segs.length)&&!confirm('Clear the schematic?'))return;
+  comps=[];segs=[];busOf={};alias={};nameOfPin={};nextNet=1;uid=1;
+  selIds.clear();selSegs.clear();hiNet=draw=placeKey=null;band=null;
+  commit();render()};
+
+/* ==========================================================================
+   Export. The bitstream this feeds programs real silicon, so anything that
+   would emit a physically wrong configuration blocks the export outright
+   rather than producing plausible-looking JSON.
+   ========================================================================== */
+document.getElementById('bExp').onclick=()=>{
+  const all=nets(), N=all.filter(n=>n.onchip.length);
+  const errs=problems(all).filter(p=>p[0]==='e');
+  const out=document.getElementById('out');
+  if(errs.length){
+    out.textContent='// EXPORT BLOCKED — this would program the chip incorrectly.\n//\n'
+      +errs.map(e=>'//   ✖ '+e[1]).join('\n')
+      +'\n//\n// Fix these in the Nets panel, then export again.';
+    document.getElementById('modal').classList.add('show');return;
+  }
+  /* union pins per bus — two nets on one bus is an error above, but merging
+     rather than overwriting means a bug here can never silently drop a pin */
+  const o={};
+  N.forEach(n=>{const b=busOf[n.id];if(!b)return;
+    (o[b]=o[b]||new Set()); n.onchip.forEach(m=>o[b].add(m.pcb))});
+  const ks=Object.keys(o).map(Number).sort((x,y)=>x-y);
+  const sk=N.filter(n=>!busOf[n.id]);
+  out.textContent=
+    (sk.length?`// omitted, no bus assigned: ${sk.map(n=>n.name).join(', ')}\n`:'')+
+    (ks.length?`{\n${ks.map(k=>`  "${k}": [${[...o[k]].sort((x,y)=>x-y).join(', ')}]`).join(',\n')}\n}`:'{ }');
+  lastConns={}; ks.forEach(k=>lastConns[String(k)]=[...o[k]].sort((x,y)=>x-y));
+  document.querySelector('#card h3').textContent='connections.json';
+  document.getElementById('bProg').style.display=ks.length?'':'none';
+  document.getElementById('bDl').style.display=ks.length?'':'none';
+  document.getElementById('picolog').textContent='';
+  document.getElementById('picolog').classList.remove('on');
+  document.getElementById('modal').classList.add('show')};
+let lastConns=null;
+document.getElementById('bClose').onclick=()=>document.getElementById('modal').classList.remove('show');
+document.getElementById('bProg').onclick=()=>{
+  if(!lastConns||!Object.keys(lastConns).length){alert('Nothing to program — assign buses first.');return}
+  document.getElementById('picolog').classList.add('on');
+  document.getElementById('picolog').textContent=
+    'MOSbius V1 \u00b7 Pico on EN=GP'+PICO.EN+'  CLK=GP'+PICO.CLK+'  DATA=GP'+PICO.DATA+'\n'+
+    'The board must already be running MicroPython, and no other program '+
+    '(Thonny, mpremote, a serial monitor) may be holding its port.\n';
+  programPico(lastConns);
+};
+document.getElementById('bDl').onclick=()=>{
+  const txt=document.getElementById('out').textContent.replace(/^\/\/.*\n/,'');
+  const b=new Blob([txt],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(b); a.download='connections.json'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+};
+
+/* ==========================================================================
+   Programming a Raspberry Pi Pico over USB.
+
+   Ported straight from MOSbius_MicroPython_Flow/V1 (MOSbius.py + main.py), and
+   checked bit-for-bit against that Python for the reference connections.json:
+
+     10 buses x 65 registers            = 650 bits
+     valid PCB pads                     = 1, and 5..68  (2/3/4 are EN/CLK/DATA)
+     pin -> register                    = 1 for pin 1, else pin - 3
+     bit address                        = (bus-1)*65 + (register-1)
+     shifted out in REVERSE array order = bus 10 / pin 68 leaves first
+     EN is asserted ONCE, after all 650 bits
+
+   The browser talks to the board's MicroPython REPL over Web Serial. Nothing is
+   installed on the Pico: the bitstream and the shift loop are pasted into the
+   REPL and run there, so this does not disturb any main.py already on the board.
+   ========================================================================== */
+const PICO={EN:10,CLK:11,DATA:12,BUSES:10,REGS:65,HALF_US:10};
+function validPad(p){ return p===1 || (p>=5 && p<=68); }
+function buildBitstream(conns){
+  const bits=new Array(PICO.BUSES*PICO.REGS).fill(0);
+  const bad=[];
+  for(let bus=1;bus<=PICO.BUSES;bus++){
+    const pins=conns[String(bus)]||[];
+    pins.forEach(pin=>{
+      if(!validPad(pin)){bad.push(pin);return}
+      const reg = pin===1 ? 1 : pin-3;
+      bits[(bus-1)*PICO.REGS+(reg-1)]=1;
+    });
+  }
+  if(bad.length)throw new Error('invalid MOSbius pin number: '+[...new Set(bad)].join(', '));
+  return bits;
+}
+/* the exact order the wire sees */
+const wireOrder=bits=>bits.slice().reverse().join('');
+
+function picoProgram(wire){
+  /* Sent to the REPL in paste mode. Kept deliberately small and dependency-free
+     so it runs on a bare MicroPython install with no files uploaded. */
+  return [
+    'from machine import Pin',
+    'import time',
+    `_en=Pin(${PICO.EN},Pin.OUT); _ck=Pin(${PICO.CLK},Pin.OUT); _da=Pin(${PICO.DATA},Pin.OUT)`,
+    `_s="${wire}"`,
+    '_da.value(0); _ck.value(0); _en.value(0)',
+    'for _b in _s:',
+    '    _da.value(1 if _b=="1" else 0)',
+    `    _ck.value(1); time.sleep_us(${PICO.HALF_US})`,
+    `    _ck.value(0); time.sleep_us(${PICO.HALF_US})`,
+    '_en.value(1)',
+    'print("MOSBIUS_OK",len(_s),sum(1 for _c in _s if _c=="1"))'
+  ].join('\r');
+}
+
+let picoPort=null;
+const picoLog=t=>{const e=document.getElementById('picolog');
+  if(e){e.textContent+=t;e.scrollTop=e.scrollHeight}};
+
+async function programPico(conns){
+  const btn=document.getElementById('bProg');
+  if(!('serial' in navigator)){
+    picoLog('\nWeb Serial is not available in this browser.\n'+
+      'Use Chrome or Edge, and open this file over http://localhost or https — '+
+      'Safari and Firefox do not implement it.\n'+
+      'Meanwhile: copy the JSON above to connections.json on the Pico and run main.py.\n');
+    return;
+  }
+  let bits;
+  try{ bits=buildBitstream(conns); }
+  catch(e){ picoLog('\n'+e.message+'\n'); return; }
+  const wire=wireOrder(bits);
+  const ones=bits.reduce((a,b)=>a+b,0);
+  btn.disabled=true;
+  try{
+    picoLog(`\nbitstream: ${bits.length} bits, ${ones} switches closed\n`);
+    if(!picoPort){
+      picoLog('choose the Pico\u2019s serial port\u2026\n');
+      picoPort=await navigator.serial.requestPort();
+    }
+    if(!picoPort.readable) await picoPort.open({baudRate:115200});
+    const enc=new TextEncoder();
+    const wr=picoPort.writable.getWriter();
+    const rd=picoPort.readable.getReader();
+    let seen='';
+    const pump=(async()=>{ const dec=new TextDecoder();
+      try{ for(;;){ const {value,done}=await rd.read(); if(done)break;
+        const t=dec.decode(value); seen+=t; picoLog(t); } }catch(e){} })();
+    const send=async t=>{ await wr.write(enc.encode(t)); };
+    picoLog('interrupting any running program\u2026\n');
+    await send('\r\x03\x03');                 // ctrl-C twice
+    await new Promise(r=>setTimeout(r,220));
+    await send('\x05');                        // ctrl-E : paste mode
+    await new Promise(r=>setTimeout(r,120));
+    picoLog('shifting 650 bits\u2026\n');
+    await send(picoProgram(wire));
+    await send('\x04');                        // ctrl-D : execute
+    /* 650 bits x 20 us plus REPL overhead is well under a second */
+    const t0=Date.now();
+    while(Date.now()-t0<8000 && !/MOSBIUS_OK/.test(seen))
+      await new Promise(r=>setTimeout(r,100));
+    rd.releaseLock(); wr.releaseLock(); await pump;
+    if(/MOSBIUS_OK/.test(seen)) picoLog('\n\u2713 chip programmed.\n');
+    else picoLog('\n\u26a0 no confirmation from the board. Is it running MicroPython, '+
+                 'and is Thonny (or another serial monitor) holding the port?\n');
+  }catch(e){
+    picoLog('\n\u2716 '+e.message+'\n');
+    picoPort=null;
+  }finally{ btn.disabled=false; }
+}
+
+/* ---------- save / open a project file ---------- */
+function toast(msg){
+  const e=document.getElementById('sSaved');e.textContent=msg;
+  clearTimeout(toast._t);toast._t=setTimeout(()=>e.textContent='',2400);
+}
+function saveFile(){
+  const blob=new Blob([JSON.stringify(JSON.parse(snapshot()),null,1)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='schematic.mosb.json';
+  a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast('saved schematic.mosb.json');
+}
+document.getElementById('bSave').onclick=saveFile;
+document.getElementById('bOpen').onclick=()=>document.getElementById('fOpen').click();
+document.getElementById('fOpen').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const o=JSON.parse(rd.result);
+      if(!o||!Array.isArray(o.comps)||!Array.isArray(o.segs))throw new Error('not a MOSbius schematic');
+      const bad=o.comps.find(c=>!BY[c.key]);
+      if(bad)throw new Error('unknown device "'+bad.key+'"');
+      restore(rd.result); hist=[snapshot()]; hpos=0; autosave();
+      fit(); toast('opened '+f.name);
+    }catch(err){ alert('Could not open that file: '+err.message) }
+  };
+  rd.readAsText(f);
+  e.target.value='';                       // let the same file be reopened
+});
+document.getElementById('bText').onclick=()=>openTextDialog(null);
+document.getElementById('bOp').onclick=()=>{
+  if(showOp){showOp=false;opRes=null;
+    document.getElementById('bOp').classList.remove('on');render();return}
+  const ct=buildCircuit();
+  if(!ct.devs.some(d=>d.kind==='m')){alert('No transistors to solve — place some devices first.');return}
+  const bad=noDCPath(ct);
+  if(bad.length){alert(dcPathAdvice(bad,ct));return}
+  let op; try{ op=operatingPoint(ct) }catch(e){ alert('Operating point failed: '+e.message); return }
+  opRes=op; showOp=true;
+  document.getElementById('bOp').classList.add('on');
+  const sat=op.mos.filter(d=>d.region==='saturation').length;
+  toast(op.conv? `op: ${op.mos.length} devices, ${sat} in saturation`
+               : '\u26a0 operating point did not fully converge');
+  if(ct.warn.length)toast('\u26a0 '+ct.warn[0]);
+  render();
+};
+document.getElementById('bUndo').onclick=undo;
+document.getElementById('bRedo').onclick=redo;
+document.getElementById('bRot').onclick=()=>turn(90);
+document.getElementById('bMir').onclick=flip;
+document.getElementById('bCopy').onclick=()=>{
+  navigator.clipboard.writeText(document.getElementById('out').textContent);
+  const b=document.getElementById('bCopy');b.textContent='Copied';setTimeout(()=>b.textContent='Copy',1200)};
+
+/* ---------- demo: 3-stage ring oscillator (16-16-8), as in the MOSbius docs ---- */
+document.getElementById('bDemo').onclick=()=>{
+  comps=[];segs=[];busOf={};alias={};nameOfPin={};nextNet=1;uid=1;
+  selIds.clear();selSegs.clear();
+  /* Three-stage ring oscillator, following the MOSbius reference design:
+     two 16x inverters plus a third stage built from the 4x pMOS/nMOS pair.
+     The 4x devices expose their sources, so chip_vdd / chip_vss are needed. */
+  comps.push(
+    {id:uid++,key:'inverter_a',   x:200, y:320},   // out (260,320)  inp(120,260) inn(120,380)
+    {id:uid++,key:'inverter_b',   x:520, y:320},   // inp(440,260) inn(440,380) out(580,320)
+    {id:uid++,key:'dp_pmos_4x_a', x:880, y:200},   // src(880,160) gate(840,200) drn(880,240) nw(920,200)
+    {id:uid++,key:'dp_nmos_4x_a', x:880, y:460},   // gate(840,460) drn(880,420) src(880,500) sub(920,460)
+    {id:uid++,key:'chip_vdd',     x:1180,y:120},   // pin (1180,160)
+    {id:uid++,key:'chip_vss',     x:1180,y:540});  // pin (1180,500)
+  const w=(x1,y1,x2,y2)=>segs.push({x1,y1,x2,y2});
+
+  // stage 1 out -> stage 2 split gates
+  w(260,320,360,320); w(360,260,360,380); w(360,260,440,260); w(360,380,440,380);
+  // stage 2 out -> stage 3 gates
+  w(580,320,700,320); w(700,200,700,460); w(700,200,840,200); w(700,460,840,460);
+  /* Stage 3 output, then feedback around to the stage 1 gates. The return bus
+     runs at x=40, clear of inverter A's body (its box starts at x=108), so the
+     feedback does not double back over the inp/inn leads it is driving. */
+  w(880,240,880,420); w(880,320,1000,320);
+  w(1000,320,1000,660); w(40,660,1000,660); w(40,260,40,660);
+  w(40,260,120,260); w(40,380,120,380);
+  // supply nets: pMOS source + nwell -> chip_vdd ; nMOS source + substrate -> chip_vss
+  w(880,160,1180,160); w(920,200,920,160);
+  w(880,500,1180,500); w(920,460,920,500);
+  commit(); fit();
+};
+
+
+/* ==========================================================================
+   SIMULATION
+   Compact MOSFET model parameterised from the TSMC 0.25um cards:
+     cmosn vth0=0.3736  cmosp vth0=-0.5130   tox=5.6n
+     u0(n)=313.1  u0(p)=105.9  ->  KP(n)=193.1  KP(p)=65.3 uA/V^2
+   Unit device W=4u L=0.5u; nMOS unit = 2 fingers, pMOS unit = 6 fingers.
+   ========================================================================== */
+const MP={
+  VDD:2.5, L:0.5, WF:4,                 // um
+  COX:6.166e-15,                        // F/um^2
+  KPN:193.1e-6, KPP:65.3e-6,            // A/V^2 per square
+  VTN:0.3736, VTP:0.5130,               // |Vth|
+  ECLN:2.0, ECLP:5.0,                   // Esat*L  (V)
+  LAM:0.08,                             // channel-length modulation 1/V
+  NVT:0.0362,                           // n*kT/q  (n=1.4)
+  CJ:1.0e-15, CJSW:0.25e-15, AD:2.0, PD:4.5,   // per finger: um^2, um
+  CGDO:0.30e-15                         // overlap F/um
+};
+/* transistors inside each on-chip block: t=type, M=multiplier,
+   terminals name a pin, or #VDD / #GND for the on-die rails            */
+const SIMDEV={
+  cs_nmos_4x_a:[{t:'n',M:4,g:'gate',d:'drain',s:'#GND'}],
+  cs_nmos_4x_b:[{t:'n',M:4,g:'gate',d:'drain',s:'#GND'}],
+  cs_pmos_4x_a:[{t:'p',M:4,g:'gate',d:'drain',s:'#VDD'}],
+  cs_pmos_4x_b:[{t:'p',M:4,g:'gate',d:'drain',s:'#VDD'}],
+  dp_nmos_1x_a:[{t:'n',M:1,g:'gate',d:'drain',s:'source'}],
+  dp_nmos_1x_b:[{t:'n',M:1,g:'gate',d:'drain',s:'source'}],
+  dp_nmos_4x_a:[{t:'n',M:4,g:'gate',d:'drain',s:'source'}],
+  dp_nmos_4x_b:[{t:'n',M:4,g:'gate',d:'drain',s:'source'}],
+  dp_pmos_1x_a:[{t:'p',M:1,g:'gate',d:'drain',s:'source'}],
+  dp_pmos_1x_b:[{t:'p',M:1,g:'gate',d:'drain',s:'source'}],
+  dp_pmos_4x_a:[{t:'p',M:4,g:'gate',d:'drain',s:'source'}],
+  dp_pmos_4x_b:[{t:'p',M:4,g:'gate',d:'drain',s:'source'}],
+  inverter_a:[{t:'p',M:16,g:'inp',d:'out',s:'#VDD'},{t:'n',M:16,g:'inn',d:'out',s:'#GND'}],
+  inverter_b:[{t:'p',M:16,g:'inp',d:'out',s:'#VDD'},{t:'n',M:16,g:'inn',d:'out',s:'#GND'}],
+  nmos_currentmirror:[{t:'n',M:1,g:'in',d:'in',s:'#GND'},{t:'n',M:1,g:'in',d:'out',s:'#GND'}],
+  pmos_currentmirror:[{t:'p',M:1,g:'gate',d:'gate',s:'#VDD'},{t:'p',M:1,g:'gate',d:'drain',s:'#VDD'}],
+
+  /* Binary-weighted mirror banks. Multipliers read from
+     nMOS_currentMirror_array.asc (1,1,2,4,8,16,32) and
+     pMOS_currentMirror_array.asc (1,1,2,4,8,16). */
+  nmos_currentmirror_array:[
+    {t:'n',M:1, g:'in',d:'in',   s:'#GND',nm:'M1 in'},
+    {t:'n',M:1, g:'in',d:'out1', s:'#GND',nm:'M2 1x'},
+    {t:'n',M:2, g:'in',d:'out2', s:'#GND',nm:'M3 2x'},
+    {t:'n',M:4, g:'in',d:'out4', s:'#GND',nm:'M4 4x'},
+    {t:'n',M:8, g:'in',d:'out8', s:'#GND',nm:'M5 8x'},
+    {t:'n',M:16,g:'in',d:'out16',s:'#GND',nm:'M6 16x'},
+    {t:'n',M:32,g:'in',d:'out32',s:'#GND',nm:'M7 32x'}],
+  pmos_currentmirror_array:[
+    {t:'p',M:1, g:'in',d:'in',   s:'#VDD',nm:'M1 in'},
+    {t:'p',M:1, g:'in',d:'out1', s:'#VDD',nm:'M2 1x'},
+    {t:'p',M:2, g:'in',d:'out2', s:'#VDD',nm:'M3 2x'},
+    {t:'p',M:4, g:'in',d:'out4', s:'#VDD',nm:'M4 4x'},
+    {t:'p',M:8, g:'in',d:'out8', s:'#VDD',nm:'M5 8x'},
+    {t:'p',M:16,g:'in',d:'out16',s:'#VDD',nm:'M6 16x'}],
+
+  /* Five-transistor OTAs, topology and multipliers from OTA_nMOS.asc /
+     OTA_pMOS.asc. Names beginning '$' are nodes internal to the block — they are
+     made unique per instance, and are solved for like any other free node, which
+     is what lets the tail and the mirror node show up in the operating point.
+     '$coso' is the pair's common source; '$outb' is the diode-connected mirror
+     node. inp drives the device whose drain lands on $outb, so a rise on inp
+     pulls $outb down, turns the load on harder, and drives out UP: inp is the
+     non-inverting input, matching the + on the symbol. */
+  ota_nmos:[
+    {t:'n',M:2,g:'biasn',d:'$coso',s:'#GND', nm:'M1 tail'},
+    {t:'n',M:1,g:'inp',  d:'$outb',s:'$coso',nm:'M2 in+'},
+    {t:'n',M:1,g:'inn',  d:'out',  s:'$coso',nm:'M3 in-'},
+    {t:'p',M:1,g:'$outb',d:'$outb',s:'#VDD', nm:'M4 load'},
+    {t:'p',M:1,g:'$outb',d:'out',  s:'#VDD', nm:'M5 load'}],
+  ota_pmos:[
+    {t:'p',M:2,g:'biasp',d:'$coso',s:'#VDD', nm:'M1 tail'},
+    {t:'p',M:1,g:'inp',  d:'$outb',s:'$coso',nm:'M2 in+'},
+    {t:'p',M:1,g:'inn',  d:'out',  s:'$coso',nm:'M3 in-'},
+    {t:'n',M:1,g:'$outb',d:'$outb',s:'#GND', nm:'M4 load'},
+    {t:'n',M:1,g:'$outb',d:'out',  s:'#GND', nm:'M5 load'}],
+};
+/* default properties per testbench block */
+const PDEF={
+  vpulse:{v1:'0',v2:'2.5',td:'2n',tr:'0.5n',tf:'0.5n',pw:'8n',per:'20n'},
+  vdc:{v:'1.25'}, idc:{i:'10u'}, res:{r:'10k'}, cap:{c:'200f'}, ind:{l:'1u'},
+  vsin:{vo:'1.25',va:'10m',freq:'1MEG',ph:'0'},
+};
+const PLBL={v1:'V initial',v2:'V pulsed',td:'delay',tr:'rise time',tf:'fall time',
+  pw:'pulse width',per:'period',v:'DC voltage',i:'DC current',r:'resistance',c:'capacitance',l:'inductance',
+  vo:'DC offset',va:'amplitude',freq:'frequency',ph:'phase'};
+const PUNIT={v1:'V',v2:'V',td:'s',tr:'s',tf:'s',pw:'s',per:'s',v:'V',i:'A',r:'\u03a9',c:'F',l:'H',vo:'V',va:'V',freq:'Hz',ph:'\u00b0'};
+
+const SUF={f:1e-15,p:1e-12,n:1e-9,u:1e-6,m:1e-3,k:1e3,K:1e3,M:1e6,g:1e9,G:1e9};
+function pv(x){                                   // "20n" -> 2e-8
+  if(typeof x==='number')return x;
+  const m=String(x).trim().match(/^([-+]?[\d.]+(?:[eE][-+]?\d+)?)\s*([fpnumkKMgG])?/);
+  if(!m)return 0;
+  return parseFloat(m[1])*(m[2]?SUF[m[2]]:1);
+}
+function fv(v,u){                                 // 2e-8 -> "20 ns"
+  if(v===0)return '0 '+u;
+  const a=Math.abs(v);
+  const t=[[1e-15,'f'],[1e-12,'p'],[1e-9,'n'],[1e-6,'\u00b5'],[1e-3,'m'],[1,''],[1e3,'k'],[1e6,'M']];
+  let b=t[0];for(const x of t)if(a>=x[0]*0.999)b=x;
+  return (v/b[0]).toFixed(3).replace(/\.?0+$/,'')+' '+b[1]+u;
+}
+const prop=(c,k)=>pv((c.props&&c.props[k])!==undefined?c.props[k]:PDEF[c.key][k]);
+function pulseV(c,t){
+  const v1=prop(c,'v1'),v2=prop(c,'v2'),td=prop(c,'td'),tr=Math.max(prop(c,'tr'),1e-18),
+        tf=Math.max(prop(c,'tf'),1e-18),pw=prop(c,'pw'),per=prop(c,'per');
+  if(t<td)return v1;
+  let x=per>0?(t-td)%per:(t-td);
+  if(x<tr)return v1+(v2-v1)*x/tr;
+  if(x<tr+pw)return v2;
+  if(x<tr+pw+tf)return v2+(v1-v2)*(x-tr-pw)/tf;
+  return v1;
+}
+
+function sinV(c,t){
+  return prop(c,'vo')+prop(c,'va')*Math.sin(2*Math.PI*prop(c,'freq')*t+prop(c,'ph')*Math.PI/180);
+}
+
+/* ---------- MOSFET drain current (positive = into drain terminal) ---------- */
+function idrain(t,vg,vd,vs,WoL){
+  const n=t==='n', sg=n?1:-1;
+  let Vg=sg*vg, Vd=sg*vd, Vs=sg*vs, rev=1;
+  if(Vd<Vs){const q=Vd;Vd=Vs;Vs=q;rev=-1;}
+  const Vgs=Vg-Vs, Vds=Vd-Vs;
+  const Vth=n?MP.VTN:MP.VTP, KP=n?MP.KPN:MP.KPP, ECL=n?MP.ECLN:MP.ECLP;
+  const k=KP*WoL;
+  /* Soft threshold -> continuous subthreshold behaviour.
+
+     The half-argument matters. Vov is squared to make the current, so a plain
+     softplus in z gives I ~ exp(2·Vgs/nVt) below threshold — twice the real
+     subthreshold slope, and a weak-inversion gm/Id ceiling of 2/nVt (~55/V)
+     instead of the physical 1/nVt (~28/V). Folding the half in here (the EKV
+     interpolation) makes I ~ exp(Vgs/nVt) in weak inversion while leaving the
+     strong-inversion limit Vov -> Vgs-Vth untouched. gm/Id is the number the
+     MOSbius docs tell you to design with, so its asymptote has to be right. */
+  const z=(Vgs-Vth)/MP.NVT, u=0.5*z;
+  const Vov=2*MP.NVT*(u>34?u:Math.log1p(Math.exp(u)));
+  if(Vov<=0)return 0;
+  const Vdsat=Vov*ECL/(Vov+ECL);
+  let I;
+  if(Vds<Vdsat) I=k*(Vov*Vds-0.5*Vds*Vds)/(1+Vds/ECL);
+  else          I=k*(Vov*Vdsat-0.5*Vdsat*Vdsat)/(1+Vdsat/ECL)*(1+MP.LAM*(Vds-Vdsat));
+  return sg*rev*I;
+}
+
+/* ---------- build a solvable circuit from the schematic ---------- */
+function buildCircuit(){
+  const N=nets(), netOf={};
+  N.forEach(n=>n.mem.forEach(m=>netOf[m.key]=n.name));
+  const pinNet=(c,nm)=>{
+    const i=BY[c.key].pins.findIndex(p=>p.nm===nm);
+    return i<0?null:(netOf[pinKey(c,i)]||null);
+  };
+  const nodes=new Set(['#GND','#VDD']);
+  N.forEach(n=>nodes.add(n.name));
+  const fixed={'#GND':0,'#VDD':MP.VDD};
+  const srcs=[], devs=[], caps=[], ress=[];
+  const warn=[];
+
+  /* Rails first: a source placed before its ground symbol in `comps` would
+     otherwise be told its negative terminal is floating when it plainly is not.
+     chip_vdd / chip_vss are the on-die supply taps — a net reaching one of them
+     IS that rail, which is why they need no transistor model of their own. */
+  comps.forEach(c=>{
+    if(c.key==='gnd'){const n=pinNet(c,'g'); if(n)fixed[n]=0;}
+    if(c.key==='chip_vss'){const n=pinNet(c,'chip_vss'); if(n)fixed[n]=0;}
+    if(c.key==='chip_vdd'){const n=pinNet(c,'chip_vdd'); if(n)fixed[n]=MP.VDD;}
+  });
+
+  comps.forEach(c=>{
+    const k=c.key;
+    if(k==='gnd'||k==='chip_vdd'||k==='chip_vss')return;
+    /* A no-connect contributes nothing electrically. Its value is that it forms
+       a net with the pin it sits on, so that pin stops reading as floating. */
+    if(k==='noconn')return;
+    if(k==='vdc'||k==='vpulse'||k==='vpwl'||k==='vsin'){
+      const a=pinNet(c,'p'), b=pinNet(c,'n');
+      if(!a){warn.push('a source has an unconnected + terminal');return}
+      if(b&&fixed[b]===undefined) warn.push('source negative terminal is not grounded');
+      srcs.push({c,node:a,kind:k}); return;
+    }
+    if(k==='cap'){const a=pinNet(c,'a'),b=pinNet(c,'b');
+      if(a&&b)caps.push({a,b,C:prop(c,'c')}); return;}
+    if(k==='ind'){ if(pinNet(c,'a')&&pinNet(c,'b'))
+      warn.push('inductor is symbol-only — it has no simulation model and is ignored'); return;}
+    if(k==='res'){const a=pinNet(c,'a'),b=pinNet(c,'b');
+      if(a&&b)ress.push({a,b,G:1/Math.max(prop(c,'r'),1e-9)}); return;}
+    if(k==='idc'){const a=pinNet(c,'p'),b=pinNet(c,'n');
+      if(a&&b)devs.push({kind:'i',cid:c.id,a,b,I:prop(c,'i')}); return;}
+    if(k==='text')return;
+    const sd=SIMDEV[k];
+    if(!sd){ if(!isTB(k)) warn.push(BY[k].n+' has no simulation model yet'); return; }
+    sd.forEach((d,di)=>{
+      /* '#' = a fixed rail, '$' = a node internal to this block instance
+         (unique per component so two OTAs don't share a tail), else a pin name */
+      const rs=x=> x[0]==='#' ? x : x[0]==='$' ? ('x'+c.id+x) : pinNet(c,x);
+      const g=rs(d.g), dr=rs(d.d), so=rs(d.s);
+      /* An unconnected DRAIN is normal — a mirror array has six outputs and you
+         are meant to use one. There is no current path, so the device simply
+         contributes nothing and is dropped quietly. An unconnected gate or
+         source is a real problem: the device cannot be biased, or has no return
+         path, and leaving it in would give the solver a node it cannot resolve. */
+      if(!dr)return;
+      if(!g||!so){warn.push(BY[k].n+' — '+(d.nm||'a device')+
+        ' has an unconnected '+(!g?'gate':'source'));return}
+      const fing=(d.t==='n'?2:6)*d.M, W=MP.WF*fing;
+      const Cg=MP.COX*W*MP.L, Cov=MP.CGDO*W;
+      const Cj=(MP.CJ*MP.AD+MP.CJSW*MP.PD)*fing;
+      devs.push({kind:'m',t:d.t,g,d:dr,s:so,WoL:W/MP.L,M:d.M,
+                 cid:c.id, nm:d.nm||'', key:k, idx:di,
+                 Cgs:0.5*Cg+Cov,Cgd:0.5*Cg+Cov,Cdb:Cj,Csb:Cj});
+      nodes.add(g);nodes.add(dr);nodes.add(so);
+    });
+  });
+  srcs.forEach(s=>{if(fixed[s.node]===undefined)fixed[s.node]=0});
+  const free=[...nodes].filter(n=>fixed[n]===undefined);
+  return {nodes:[...nodes],free,fixed,srcs,devs,caps,ress,warn,N};
+}
+
+/* ==========================================================================
+   Small-signal parameters at an operating point.
+
+   Taken by central difference on idrain() rather than by hand-differentiating
+   the model. The model has three regime changes in it (subthreshold blend,
+   velocity-saturated Vdsat, channel-length modulation) and a hand-derived chain
+   rule through all of them is easy to get subtly wrong and hard to check. A
+   central difference is verifiable against theory, and gm/Id is asserted against
+   its strong- and weak-inversion limits in the test suite.
+   ========================================================================== */
+function smallSignal(d,V){
+  const h=1e-4;
+  const I =idrain(d.t,V[d.g],V[d.d],V[d.s],d.WoL);
+  const gm =(idrain(d.t,V[d.g]+h,V[d.d],V[d.s],d.WoL)
+            -idrain(d.t,V[d.g]-h,V[d.d],V[d.s],d.WoL))/(2*h);
+  const gds=(idrain(d.t,V[d.g],V[d.d]+h,V[d.s],d.WoL)
+            -idrain(d.t,V[d.g],V[d.d]-h,V[d.s],d.WoL))/(2*h);
+  const sg=d.t==='n'?1:-1;
+  const Vgs=sg*(V[d.g]-V[d.s]), Vds=sg*(V[d.d]-V[d.s]);
+  const Vth=d.t==='n'?MP.VTN:MP.VTP;
+  const Vov=Vgs-Vth;
+  const ECL=d.t==='n'?MP.ECLN:MP.ECLP;
+  const Vdsat=Vov>0?Vov*ECL/(Vov+ECL):0;
+  const region = Vov<=0 ? (Vov<-4*MP.NVT?'cutoff':'subthreshold')
+               : (Vds<Vdsat?'triode':'saturation');
+  const Id=Math.abs(I), ro=Math.abs(gds)>1e-15?1/Math.abs(gds):Infinity;
+  return {I,Id,gm:Math.abs(gm),gds:Math.abs(gds),ro,
+          gain:Math.abs(gm)*ro, gmid:Id>1e-15?Math.abs(gm)/Id:0,
+          Vgs,Vds,Vov,Vdsat,region};
+}
+
+/* ==========================================================================
+   Solver core, shared by every analysis.
+
+   `newton(h, Vp)` with h = 0 is a DC solve; with h > 0 it is one backward-Euler
+   timestep from the previous state Vp. The operating point, each point of a DC
+   sweep, the linearisation an AC analysis needs, and every transient step are
+   all the same call.
+
+   `override` lets an analysis pin a source to a chosen value (DC sweep) instead
+   of taking it from the component's own property.
+   ========================================================================== */
+function makeSolver(ct){
+  const {free,fixed,srcs,devs,caps,ress}=ct;
+  const idx={};free.forEach((n,i)=>idx[n]=i);
+  const M=free.length;
+  const V={}; Object.assign(V,fixed); free.forEach(n=>V[n]=0);
+  const override={};                       // component id -> forced voltage
+  const iover={};                          // component id -> forced current
+  let trap=false, iPrev=null;              // integration method + capacitor currents
+  const setSrc=t=>srcs.forEach(s=>{
+    V[s.node]= (override[s.c.id]!==undefined) ? override[s.c.id]
+             : s.kind==='vpulse' ? pulseV(s.c,t)
+             : s.kind==='vsin'   ? sinV(s.c,t)
+             : prop(s.c,'v');});
+
+  // every capacitive path, device parasitics included
+  const allC=caps.slice();
+  devs.forEach(d=>{if(d.kind!=='m')return;
+    allC.push({a:d.g,b:d.s,C:d.Cgs},{a:d.g,b:d.d,C:d.Cgd},
+              {a:d.d,b:d.s,C:d.Cdb});});
+
+  function resid(x,h,Vp){
+    free.forEach((n,i)=>V[n]=x[i]);
+    const F=new Float64Array(M);
+    const add=(n,v)=>{if(idx[n]!==undefined)F[idx[n]]+=v};
+    devs.forEach(d=>{
+      if(d.kind==='i'){const I=iover[d.cid]!==undefined?iover[d.cid]:d.I;
+                       add(d.a,I);add(d.b,-I);return}
+      const I=idrain(d.t,V[d.g],V[d.d],V[d.s],d.WoL);
+      add(d.d,I);add(d.s,-I);
+    });
+    ress.forEach(r=>{const i=(V[r.a]-V[r.b])*r.G;add(r.a,i);add(r.b,-i);});
+    if(h>0) allC.forEach((c,k)=>{
+      /* backward Euler:  i = C/h·(v − v_prev)
+         trapezoidal:     i = 2C/h·(v − v_prev) − i_prev
+         Trapezoidal is second-order, so it does not artificially damp edges the
+         way backward Euler does — overshoot and ringing come out at their real
+         size instead of being smoothed away. */
+      const dv=(V[c.a]-V[c.b])-(Vp[c.a]-Vp[c.b]);
+      const i= trap ? 2*c.C/h*dv - iPrev[k] : c.C/h*dv;
+      add(c.a,i);add(c.b,-i);
+    });
+    return F;
+  }
+  function newton(h,Vp){
+    let x=free.map(n=>V[n]);
+    let conv=false;
+    for(let it=0;it<60;it++){
+      const F=resid(x,h,Vp);
+      let nrm=0;for(let i=0;i<M;i++)nrm=Math.max(nrm,Math.abs(F[i]));
+      if(nrm<1e-10){conv=true;break}
+      // numeric Jacobian
+      const J=[];const d=1e-7;
+      for(let j=0;j<M;j++){
+        const xs=x.slice();xs[j]+=d;
+        const F2=resid(xs,h,Vp);
+        for(let i=0;i<M;i++){J[i]=J[i]||new Float64Array(M);J[i][j]=(F2[i]-F[i])/d;}
+      }
+      resid(x,h,Vp);
+      // gaussian elimination J*dx = -F
+      const A=[];for(let i=0;i<M;i++){A.push(Array.from(J[i]).concat([-F[i]]))}
+      for(let i=0;i<M;i++){
+        let piv=i;for(let r=i+1;r<M;r++)if(Math.abs(A[r][i])>Math.abs(A[piv][i]))piv=r;
+        if(Math.abs(A[piv][i])<1e-18){A[i][i]+=1e-12;piv=i}
+        [A[i],A[piv]]=[A[piv],A[i]];
+        for(let r=0;r<M;r++){if(r===i)continue;const f=A[r][i]/A[i][i];
+          for(let cc=i;cc<=M;cc++)A[r][cc]-=f*A[i][cc];}
+      }
+      let mx=0;
+      for(let i=0;i<M;i++){const dx=A[i][M]/A[i][i];
+        const lim=Math.max(-0.6,Math.min(0.6,dx));x[i]+=lim;mx=Math.max(mx,Math.abs(lim));}
+      if(mx<1e-9){conv=true;break}
+    }
+    free.forEach((n,i)=>V[n]=x[i]);
+    return conv;
+  }
+  return {V,idx,M,free,allC,devs,ress,setSrc,newton,override,iover,
+          seed(){free.forEach(n=>V[n]=0)},
+          setTrap(on){trap=on; if(!iPrev)iPrev=new Float64Array(allC.length)},
+          getIPrev(){return iPrev?Float64Array.from(iPrev):null},
+          setIPrev(a){iPrev=Float64Array.from(a)},
+          /* capacitor currents after an accepted step, for the next one */
+          advance(h,Vp){
+            if(!iPrev)iPrev=new Float64Array(allC.length);
+            allC.forEach((c,k)=>{
+              const dv=(V[c.a]-V[c.b])-(Vp[c.a]-Vp[c.b]);
+              iPrev[k]= trap ? 2*c.C/h*dv - iPrev[k] : c.C/h*dv;
+            });
+          }};
+}
+
+/* Nodes with no DC path. A MOSFET gate draws no current in this model, so a node
+   that reaches only gates (and current sources, which are constant and so
+   contribute nothing to the Jacobian) leaves KCL with an all-zero row: the node
+   voltage is simply undetermined and the matrix is singular. This is the classic
+   "no DC path to ground", and on MOSbius it has one overwhelmingly common cause —
+   pushing a bias current straight into a gate instead of into the diode-connected
+   input of a mirror, which is the thing that turns that current into a voltage. */
+function noDCPath(ct){
+  const has={};
+  ct.devs.forEach(d=>{ if(d.kind==='m'){has[d.d]=1;has[d.s]=1} });
+  ct.ress.forEach(r=>{has[r.a]=1;has[r.b]=1});
+  return ct.free.filter(n=>!has[n]);
+}
+function dcPathAdvice(ns,ct){
+  const gateOnly=ns.filter(n=>ct.devs.some(d=>d.kind==='m'&&d.g===n));
+  return `no DC path at ${ns.join(', ')} — `+
+    (gateOnly.length
+      ? 'that node only reaches transistor gates. A current pushed into a gate has '+
+        'nowhere to flow, so its voltage is undefined. Bias it through a diode-connected '+
+        'device instead: drive the current mirror input (pin 19 nMOS / pin 68 pMOS), '+
+        'which shares the pad with the OTA bias pin and converts the current to a voltage.'
+      : 'that node has no resistive or transistor path to a rail.');
+}
+
+/* ---------- DC operating point ---------- */
+function operatingPoint(ct){
+  const S=makeSolver(ct);
+  S.setSrc(0);
+  const Vp={};Object.assign(Vp,S.V);
+  const conv=S.newton(0,Vp);
+  const V={};Object.assign(V,S.V);
+  const byComp={};
+  const mos=ct.devs.filter(d=>d.kind==='m').map(d=>{
+    const r=smallSignal(d,V);
+    const rec={cid:d.cid,nm:d.nm,key:d.key,t:d.t,M:d.M,...r};
+    (byComp[d.cid]=byComp[d.cid]||[]).push(rec);
+    return rec;
+  });
+  return {V,mos,byComp,conv};
+}
+
+/* ==========================================================================
+   DC sweep. Walks a source across a range, solving at each point, and records
+   every node voltage and every transistor's small-signal state so any of them
+   can be plotted afterwards without re-solving.
+
+   Points are NOT re-seeded between steps: each solve starts from the previous
+   answer. That continuation is what keeps a sweep converging through the sharp
+   turn-on region, and it is much faster than starting cold every time.
+   ========================================================================== */
+function sweepValues(a,b,n){
+  n=Math.max(2,Math.round(n));
+  const out=[]; for(let i=0;i<n;i++) out.push(a+(b-a)*i/(n-1));
+  return out;
+}
+function dcSweep(ct,spec){
+  const S=makeSolver(ct);
+  const mos=ct.devs.filter(d=>d.kind==='m');
+  const xs=sweepValues(spec.from,spec.to,spec.points);
+  const outer=spec.step? sweepValues(spec.step.from,spec.step.to,spec.step.points):[null];
+  const runs=[];
+  outer.forEach(sv=>{
+    if(sv!==null) applyOverride(S,spec.step.srcId,spec.step.kind,sv);
+    S.seed();                                   // cold start for each family member
+    const rec={step:sv,x:[],V:[],dev:[],bad:0};
+    xs.forEach(xv=>{
+      applyOverride(S,spec.srcId,spec.kind,xv);
+      S.setSrc(0);
+      const Vp={};Object.assign(Vp,S.V);
+      if(!S.newton(0,Vp))rec.bad++;
+      const V={};Object.assign(V,S.V);
+      rec.x.push(xv); rec.V.push(V);
+      rec.dev.push(mos.map(d=>smallSignal(d,V)));
+    });
+    runs.push(rec);
+  });
+  return {runs,mos,spec,nodes:ct.nodes};
+}
+function applyOverride(S,cid,kind,v){
+  if(kind==='i') S.iover[cid]=v; else S.override[cid]=v;
+}
+
+/* ==========================================================================
+   AC analysis. Linearise at the DC operating point, then solve
+   (G + jωC)·v = b at each frequency.
+
+   The conductance stamps are taken by finite difference on idrain() with the
+   SIGNS KEPT (smallSignal() reports magnitudes, which are what you want to read
+   but not what you can stamp). Doing it this way means no hand-reasoning about
+   nMOS/pMOS sign conventions — the derivative carries its own sign.
+   ========================================================================== */
+function acAnalysis(ct,spec){
+  const op=operatingPoint(ct);
+  const V=op.V, free=ct.free, M=free.length;
+  const idx={}; free.forEach((n,i)=>idx[n]=i);
+  const G=[],C=[];
+  for(let i=0;i<M;i++){G.push(new Float64Array(M));C.push(new Float64Array(M))}
+  const stamp=(Mx,a,b,g)=>{                 // conductance g between nodes a and b
+    const ia=idx[a],ib=idx[b];
+    if(ia!==undefined)Mx[ia][ia]+=g;
+    if(ib!==undefined)Mx[ib][ib]+=g;
+    if(ia!==undefined&&ib!==undefined){Mx[ia][ib]-=g;Mx[ib][ia]-=g}
+  };
+  ct.ress.forEach(r=>stamp(G,r.a,r.b,r.G));
+  const allC=ct.caps.slice();
+  ct.devs.forEach(d=>{if(d.kind!=='m')return;
+    allC.push({a:d.g,b:d.s,C:d.Cgs},{a:d.g,b:d.d,C:d.Cgd},{a:d.d,b:d.s,C:d.Cdb})});
+  allC.forEach(c=>stamp(C,c.a,c.b,c.C));
+  const h=1e-4;
+  ct.devs.forEach(d=>{
+    if(d.kind!=='m')return;
+    const f=(dg,dd,ds)=>idrain(d.t,V[d.g]+dg,V[d.d]+dd,V[d.s]+ds,d.WoL);
+    const gg=(f(h,0,0)-f(-h,0,0))/(2*h);      // dI_drain / dVg
+    const gd=(f(0,h,0)-f(0,-h,0))/(2*h);      // dI_drain / dVd
+    const gs=(f(0,0,h)-f(0,0,-h))/(2*h);      // dI_drain / dVs
+    const rd=idx[d.d], rs=idx[d.s];
+    [[d.g,gg],[d.d,gd],[d.s,gs]].forEach(([n,g])=>{
+      const c=idx[n]; if(c===undefined)return;
+      if(rd!==undefined)G[rd][c]+=g;          // current into the drain
+      if(rs!==undefined)G[rs][c]-=g;          // and back out of the source
+    });
+  });
+  /* excitation: 1 V AC on the chosen source's node */
+  const src=ct.srcs.find(s=>s.c.id===spec.srcId);
+  if(!src)return {err:'pick a voltage source to drive'};
+  const drive=src.node;
+  const freqs=[];
+  const d0=Math.log10(spec.fstart), d1=Math.log10(spec.fstop);
+  const np=Math.max(2,Math.round(spec.points));
+  for(let i=0;i<np;i++)freqs.push(Math.pow(10,d0+(d1-d0)*i/(np-1)));
+  const out={f:freqs,v:{},op};
+  ct.nodes.forEach(n=>out.v[n]=[]);
+  freqs.forEach(f=>{
+    const w=2*Math.PI*f;
+    /* (G + jwC) x = b, with the driven node pinned to 1 + j0 */
+    const Ar=[],Ai=[],br=new Float64Array(M),bi=new Float64Array(M);
+    for(let i=0;i<M;i++){Ar.push(Float64Array.from(G[i]));Ai.push(Float64Array.from(C[i],v=>v*w))}
+    const di=idx[drive];
+    if(di!==undefined){                       // driven node is free: pin it
+      for(let j=0;j<M;j++){Ar[di][j]=0;Ai[di][j]=0}
+      Ar[di][di]=1; br[di]=1;
+    } else {
+      /* driven node is a fixed node: inject its 1 V through every element
+         touching it, i.e. move that column to the right-hand side */
+      for(let i=0;i<M;i++){ br[i]-=G[i]&&0; }
+      ct.ress.forEach(r=>{
+        if(r.a===drive&&idx[r.b]!==undefined)br[idx[r.b]]+=r.G;
+        if(r.b===drive&&idx[r.a]!==undefined)br[idx[r.a]]+=r.G;
+      });
+      allC.forEach(c=>{
+        if(c.a===drive&&idx[c.b]!==undefined)bi[idx[c.b]]+=c.C*w;
+        if(c.b===drive&&idx[c.a]!==undefined)bi[idx[c.a]]+=c.C*w;
+      });
+      ct.devs.forEach(d=>{
+        if(d.kind!=='m')return;
+        const fn=(dg,dd,ds)=>idrain(d.t,V[d.g]+dg,V[d.d]+dd,V[d.s]+ds,d.WoL);
+        const gmap={[d.g]:(fn(h,0,0)-fn(-h,0,0))/(2*h),
+                    [d.d]:(fn(0,h,0)-fn(0,-h,0))/(2*h),
+                    [d.s]:(fn(0,0,h)-fn(0,0,-h))/(2*h)};
+        if(gmap[drive]===undefined)return;
+        const g=gmap[drive];
+        if(idx[d.d]!==undefined)br[idx[d.d]]-=g;
+        if(idx[d.s]!==undefined)br[idx[d.s]]+=g;
+      });
+    }
+    const x=solveComplex(Ar,Ai,br,bi,M);
+    ct.nodes.forEach(n=>{
+      const i=idx[n];
+      out.v[n].push(i===undefined?(n===drive?{re:1,im:0}:{re:0,im:0})
+                                 :{re:x.re[i],im:x.im[i]});
+    });
+  });
+  return out;
+}
+/* complex Gaussian elimination with partial pivoting */
+function solveComplex(Ar,Ai,br,bi,M){
+  const R=[],I=[];
+  for(let i=0;i<M;i++){R.push(Array.from(Ar[i]).concat([br[i]]));
+                       I.push(Array.from(Ai[i]).concat([bi[i]]))}
+  for(let i=0;i<M;i++){
+    let piv=i,best=-1;
+    for(let r=i;r<M;r++){const m=R[r][i]*R[r][i]+I[r][i]*I[r][i]; if(m>best){best=m;piv=r}}
+    if(best<1e-30){R[i][i]+=1e-12;piv=i}
+    [R[i],R[piv]]=[R[piv],R[i]];[I[i],I[piv]]=[I[piv],I[i]];
+    const ar=R[i][i],ai=I[i][i],den=ar*ar+ai*ai;
+    for(let r=0;r<M;r++){
+      if(r===i)continue;
+      const fr=(R[r][i]*ar+I[r][i]*ai)/den, fi=(I[r][i]*ar-R[r][i]*ai)/den;
+      for(let c=i;c<=M;c++){
+        const xr=R[i][c],xi=I[i][c];
+        R[r][c]-=fr*xr-fi*xi;
+        I[r][c]-=fr*xi+fi*xr;
+      }
+    }
+  }
+  const re=new Float64Array(M),im=new Float64Array(M);
+  for(let i=0;i<M;i++){
+    const ar=R[i][i],ai=I[i][i],den=ar*ar+ai*ai;
+    re[i]=(R[i][M]*ar+I[i][M]*ai)/den;
+    im[i]=(I[i][M]*ar-R[i][M]*ai)/den;
+  }
+  return {re,im};
+}
+const dB=c=>20*Math.log10(Math.max(1e-300,Math.hypot(c.re,c.im)));
+const phase=c=>Math.atan2(c.im,c.re)*180/Math.PI;
+
+/* ---------- transient (backward Euler + Newton) ---------- */
+function transient(ct,tstop,hmax,opts){
+  opts=opts||{};
+  const trap=opts.method!=='be';
+  const maxDV=opts.maxDV||0.25;        // volts a node may move in one accepted step
+  const S=makeSolver(ct);
+  S.setSrc(0);
+  const Vp0={};Object.assign(Vp0,S.V);
+  S.newton(0,Vp0);                                // DC operating point first
+  /* An initial condition. A ring oscillator solved from its DC bias sits exactly
+     on its metastable point and, with no noise anywhere in the model, stays there
+     forever — the same reason SPICE needs .ic to start one. Displacing a node
+     after the DC solve is the kick that gets the loop going. */
+  if(opts.ic&&opts.ic.node&&isFinite(opts.ic.v)&&S.V[opts.ic.node]!==undefined)
+    S.V[opts.ic.node]=opts.ic.v;
+  S.setTrap(false);                               // first step is always Euler
+  const hmin=Math.max(tstop/2e6,1e-18);
+  let h=Math.min(hmax,tstop/200), t=0, step=0, rejected=0, first=true;
+  const out={t:[],v:{},rejected:0,method:trap?'trapezoidal':'backward Euler'};
+  ct.nodes.forEach(n=>out.v[n]=[]);
+  const push=()=>{out.t.push(t);ct.nodes.forEach(n=>out.v[n].push(S.V[n]))};
+  push();
+  while(t<tstop&&step<400000){
+    const Vp={};Object.assign(Vp,S.V);
+    const ipSave=S.getIPrev();
+    const tn=Math.min(t+h,tstop);
+    S.setSrc(tn);
+    const conv=S.newton(h,Vp);
+    /* Reject a step that failed to converge, or that let a node jump so far the
+       waveform between the two points is meaningless. Halving and retrying is
+       what lets a fixed max-step run resolve a sharp edge without the user
+       having to guess a small enough step up front. */
+    const jump=S.free.some(n=>Math.abs(S.V[n]-Vp[n])>maxDV);
+    if((!conv||jump)&&h>hmin){
+      Object.assign(S.V,Vp);
+      if(ipSave)S.setIPrev(ipSave);
+      h=Math.max(hmin,h*0.4); rejected++; step++;
+      continue;
+    }
+    S.advance(h,Vp);
+    if(first&&trap){S.setTrap(true);first=false}   // switch on TR after one Euler step
+    t=tn; step++;
+    push();
+    if(conv&&!jump)h=Math.min(hmax,h*1.8);
+    if(out.t.length>20000)break;
+  }
+  out.rejected=rejected;
+  return out;
+}
+
+/* ---------- measurements ---------- */
+function crossings(T,Y,lvl,dir){
+  const o=[];
+  for(let i=1;i<T.length;i++){
+    const a=Y[i-1],b=Y[i];
+    if((dir>0&&a<lvl&&b>=lvl)||(dir<0&&a>lvl&&b<=lvl)){
+      const f=(lvl-a)/(b-a||1e-30);o.push(T[i-1]+f*(T[i]-T[i-1]));
+    }
+  }
+  return o;
+}
+function measure(T,Yin,Yout){
+  const lo=Math.min(...Yout), hi=Math.max(...Yout), sw=hi-lo;
+  if(sw<0.05)return null;
+  const l10=lo+0.1*sw,l50=lo+0.5*sw,l90=lo+0.9*sw;
+  const r10=crossings(T,Yout,l10,1),r90=crossings(T,Yout,l90,1);
+  const f90=crossings(T,Yout,l90,-1),f10=crossings(T,Yout,l10,-1);
+  const iL=Math.min(...Yin),iH=Math.max(...Yin),i50=iL+0.5*(iH-iL);
+  const iu=crossings(T,Yin,i50,1),id=crossings(T,Yin,i50,-1);
+  const ou=crossings(T,Yout,l50,1),od=crossings(T,Yout,l50,-1);
+  const first=(a,b)=>{for(const x of b)if(x>=a)return x;return null};
+  const m={};
+  if(r10.length&&r90.length){const a=r10[0],b=first(a,r90);if(b)m['rise 10-90%']=b-a}
+  if(f90.length&&f10.length){const a=f90[0],b=first(a,f10);if(b)m['fall 90-10%']=b-a}
+  if(iu.length&&od.length){const a=iu[0],b=first(a,od);if(b)m['tpHL (in\u2191\u2192out\u2193)']=b-a}
+  if(id.length&&ou.length){const a=id[0],b=first(a,ou);if(b)m['tpLH (in\u2193\u2192out\u2191)']=b-a}
+  m['output swing']=sw; m['V low']=lo; m['V high']=hi;
+  return m;
+}
+
+/* ==========================================================================
+   Simulation UI.
+
+   One panel drives four analyses. They share the plot, which switches its X
+   axis (time / sweep value / log frequency) and its Y axis (volts / whatever a
+   device probe measures / dB and degrees) to suit.
+   ========================================================================== */
+const TRC=['#4FD0E3','#E9C84A','#7FD68A','#E08A6A','#B79BE0','#6FA8DC','#D98BB0','#8FD3C7'];
+let anaType='tran';
+let simCfg={tstop:'60n',hmax:'2p',icNode:'',icV:'0',
+            dc:{srcId:null,from:'0',to:'2.5',points:'101',
+                stepOn:false,stepSrc:null,stepFrom:'0.6',stepTo:'1.8',stepPoints:'4'},
+            ac:{srcId:null,fstart:'1',fstop:'1G',points:'201',phase:true}};
+let simRes=null;                    // {kind, ...} whatever the last run produced
+let probe={};                       // signal key -> on/off
+let probeAuto=true;
+let plView=null, plCur=null;
+
+/* every signal the current analysis could plot */
+function signalList(ct){
+  const out=[];
+  ct.N.forEach(n=>out.push({k:'V:'+n.name, label:'V('+n.name+')', kind:'v', node:n.name, unit:'V'}));
+  if(anaType==='dc'){
+    ct.devs.filter(d=>d.kind==='m').forEach((d,i)=>{
+      const who=d.key+(d.nm?' · '+d.nm:'');
+      [['Id','A'],['gm','S'],['ro','Ω'],['gain',''],['gmid','1/V'],
+       ['Vgs','V'],['Vds','V'],['Vov','V']].forEach(([p,u])=>
+        out.push({k:'D:'+i+':'+p, label:who+' · '+p, kind:'d', di:i, param:p, unit:u}));
+    });
+  }
+  return out;
+}
+const SRCLIST=()=>comps.filter(c=>['vdc','vpulse','vsin','idc'].includes(c.key))
+  .map(c=>({id:c.id,label:(BY[c.key].n)+' #'+c.id+(c.key==='idc'?' (current)':''),kind:c.key==='idc'?'i':'v'}));
+
+function simSetup(){
+  const ct=buildCircuit();
+  const srcs=SRCLIST();
+  if(simCfg.dc.srcId===null&&srcs.length)simCfg.dc.srcId=srcs[0].id;
+  if(simCfg.ac.srcId===null){const v=srcs.find(s=>s.kind==='v');if(v)simCfg.ac.srcId=v.id}
+
+  document.getElementById('anaBox').innerHTML=
+    `<div style="padding:2px 12px 8px"><span class="seg" id="anaType">
+      ${[['op','Op'],['dc','DC'],['ac','AC'],['tran','Tran']].map(([k,l])=>
+        `<button type="button" data-an="${k}"${anaType===k?' class="on"':''}>${l}</button>`).join('')}
+     </span></div>`+anaFields(srcs);
+
+  /* stimulus: only the sources the analysis does not itself drive */
+  const driven = anaType==='dc' ? [simCfg.dc.srcId, simCfg.dc.stepOn?simCfg.dc.stepSrc:null]
+               : anaType==='ac' ? [simCfg.ac.srcId] : [];
+  const stim=comps.filter(c=>PDEF[c.key]&&['vpulse','vdc','vsin','idc'].includes(c.key)
+                              &&!driven.includes(c.id));
+  document.getElementById('stimBox').innerHTML= stim.length? stim.map(c=>{
+    const ks=Object.keys(PDEF[c.key]);
+    return `<div style="padding:2px 12px 4px;font-family:var(--mono);font-size:10px;color:var(--accent)">${BY[c.key].n} #${c.id}</div>`+
+      ks.map(k=>`<div class="frow"><label>${PLBL[k]}</label>
+        <input data-src="${c.id}" data-k="${k}" value="${(c.props&&c.props[k])??PDEF[c.key][k]}"></div>`).join('');
+  }).join('') : `<div style="padding:4px 12px 8px;font-size:11px;color:var(--dim)">No free sources.</div>`;
+
+  /* signals */
+  const sigs=signalList(ct);
+  sigs.forEach(s=>{if(probe[s.k]===undefined)probe[s.k]=false});
+  const nProbed=sigs.filter(s=>probe[s.k]).length;
+  const rowsHtml=sigs.map((s,i)=>
+    `<div class="frow sw" data-probe="${s.k}"><span class="chip" style="background:${
+      probe[s.k]?TRC[i%TRC.length]:'#2A3541'}"></span><label>${s.label}</label></div>`).join('');
+  document.getElementById('probeBox').innerHTML =
+    anaType==='op'
+      ? `<div style="padding:4px 12px 8px;font-size:11px;color:var(--dim)">The operating point
+         annotates the schematic directly \u2014 close this window to read it.</div>`
+    : !sigs.length
+      ? `<div style="padding:4px 12px 8px;font-size:11px;color:var(--dim)">Nothing to probe.</div>`
+    : nProbed
+      ? rowsHtml
+      : `<div style="padding:4px 12px 10px;font-size:11px;color:#D6A653;line-height:1.6">
+           Nothing probed yet. Press <b>Probe nets</b>, click the nets you want on the
+           schematic, then <b>esc</b> to come back \u2014 or tick them here.</div>`+rowsHtml;
+
+  const nm=ct.devs.filter(d=>d.kind==='m').length;
+  document.getElementById('simstat').textContent=
+    `${nm} transistors · ${ct.free.length} unknown nodes`+(ct.warn.length?`  ⚠ ${ct.warn[0]}`:'');
+  document.querySelector('#sim .brand').textContent='MAESTRO — '+
+    ({op:'operating point',dc:'DC sweep',ac:'AC / Bode',tran:'transient'}[anaType]);
+}
+function anaFields(srcs){
+  const opt=(sel,kind)=>srcs.filter(s=>!kind||true).map(s=>
+    `<option value="${s.id}"${s.id==sel?' selected':''}>${s.label}</option>`).join('');
+  if(anaType==='op')
+    return `<div style="padding:4px 12px 10px;font-size:11px;color:var(--dim);line-height:1.6">
+      Solves the DC bias and writes Id, Vgs, Vov, gm, ro, gm·ro and the region beside
+      every transistor on the schematic.</div>`;
+  if(anaType==='tran'){
+    const nn=(buildCircuit().N||[]).map(n=>n.name);
+    return `<div class="frow"><label>stop time</label><input id="f_tstop" value="${simCfg.tstop}"></div>
+      <div class="frow"><label>max time step</label><input id="f_hmax" value="${simCfg.hmax}"></div>
+      <div class="frow"><label>start node at</label>
+        <select id="f_icnode"><option value="">— none —</option>
+        ${nn.map(n=>`<option value="${n}"${n===simCfg.icNode?' selected':''}>${n}</option>`).join('')}</select></div>
+      ${simCfg.icNode?`<div class="frow"><label>initial volts</label><input id="f_icv" value="${simCfg.icV}"></div>`:''}
+      <div style="padding:2px 12px 8px;font-size:10.5px;color:var(--dim);line-height:1.55">
+        A latch or ring oscillator sits on its metastable DC point and will not start
+        on its own — displace one node to kick it, as <span style="font-family:var(--mono)">.ic</span> does.</div>`;
+  }
+  if(anaType==='dc'){
+    const d=simCfg.dc;
+    return `<div class="frow"><label>sweep</label><select id="f_dcsrc">${opt(d.srcId)}</select></div>
+      <div class="frow"><label>from</label><input id="f_dcfrom" value="${d.from}"></div>
+      <div class="frow"><label>to</label><input id="f_dcto" value="${d.to}"></div>
+      <div class="frow"><label>points</label><input id="f_dcpts" value="${d.points}"></div>
+      <div class="frow sw" id="f_stepon"><span class="chip" style="background:${d.stepOn?'var(--accent)':'#2A3541'}"></span>
+        <label>step a second source</label></div>
+      ${d.stepOn?`<div class="frow"><label>step</label><select id="f_stsrc">${opt(d.stepSrc)}</select></div>
+      <div class="frow"><label>from</label><input id="f_stfrom" value="${d.stepFrom}"></div>
+      <div class="frow"><label>to</label><input id="f_stto" value="${d.stepTo}"></div>
+      <div class="frow"><label>curves</label><input id="f_stpts" value="${d.stepPoints}"></div>`:''}`;
+  }
+  const a=simCfg.ac;
+  return `<div class="frow"><label>drive</label><select id="f_acsrc">${opt(a.srcId)}</select></div>
+    <div class="frow"><label>start freq</label><input id="f_acf0" value="${a.fstart}"></div>
+    <div class="frow"><label>stop freq</label><input id="f_acf1" value="${a.fstop}"></div>
+    <div class="frow"><label>points</label><input id="f_acpts" value="${a.points}"></div>
+    <div class="frow sw" id="f_acph"><span class="chip" style="background:${a.phase?'var(--accent)':'#2A3541'}"></span>
+      <label>show phase</label></div>`;
+}
+document.getElementById('simsetup').addEventListener('click',e=>{
+  const t=e.target.closest('[data-an]');
+  if(t){anaType=t.dataset.an;plView=null;simSetup();plot();measPanel();return}
+  if(e.target.closest('#f_stepon')){
+    const d=simCfg.dc; d.stepOn=!d.stepOn;
+    if(d.stepOn&&d.stepSrc===null){const s=SRCLIST().find(x=>x.id!==d.srcId);d.stepSrc=s?s.id:d.srcId}
+    simSetup();return;
+  }
+  if(e.target.closest('#f_acph')){simCfg.ac.phase=!simCfg.ac.phase;simSetup();plot();return}
+  const p=e.target.closest('[data-probe]');if(!p)return;
+  probeAuto=false;probe[p.dataset.probe]=!probe[p.dataset.probe];simSetup();plot();
+});
+document.getElementById('simsetup').addEventListener('change',e=>{
+  const i=e.target, d=simCfg.dc, a=simCfg.ac;
+  const map={f_tstop:v=>simCfg.tstop=v, f_hmax:v=>simCfg.hmax=v,
+    f_icnode:v=>{simCfg.icNode=v;simSetup()}, f_icv:v=>simCfg.icV=v,
+    f_dcsrc:v=>d.srcId=+v, f_dcfrom:v=>d.from=v, f_dcto:v=>d.to=v, f_dcpts:v=>d.points=v,
+    f_stsrc:v=>d.stepSrc=+v, f_stfrom:v=>d.stepFrom=v, f_stto:v=>d.stepTo=v, f_stpts:v=>d.stepPoints=v,
+    f_acsrc:v=>a.srcId=+v, f_acf0:v=>a.fstart=v, f_acf1:v=>a.fstop=v, f_acpts:v=>a.points=v};
+  if(map[i.id]){map[i.id](i.value);return}
+  if(i.dataset.src){const c=comps.find(x=>x.id==i.dataset.src);
+    c.props=c.props||{};c.props[i.dataset.k]=i.value;}
+});
+
+function runSim(){
+  const ct=buildCircuit();
+  const nDev=ct.devs.length+ct.ress.length+ct.caps.length;
+  if(!nDev){alert('Nothing to simulate — place some devices and wire them up.');return}
+  /* Zero free nodes is NOT an error: driving both terminals of a device from
+     sources leaves nothing to solve for, which is exactly what a transistor
+     characterisation rig looks like. The devices are still evaluated. */
+  if(anaType==='ac'&&!ct.free.length){
+    alert('AC needs at least one node that is not pinned by a source — '+
+          'leave the node you want to measure free.');return}
+  const nodc=noDCPath(ct);
+  if(nodc.length){alert(dcPathAdvice(nodc,ct));return}
+  const t0=performance.now();
+  try{
+    if(anaType==='op'){
+      const op=operatingPoint(ct);
+      opRes=op; showOp=true;
+      document.getElementById('bOp').classList.add('on');
+      simRes={kind:'op',ct,op}; render();
+    } else if(anaType==='tran'){
+      const tstop=pv(simCfg.tstop), hmax=Math.min(pv(simCfg.hmax),tstop/50);
+      const ic=simCfg.icNode?{node:simCfg.icNode,v:pv(simCfg.icV)}:null;
+      simRes={kind:'tran',ct,out:transient(ct,tstop,hmax,{ic})};
+    } else if(anaType==='dc'){
+      const d=simCfg.dc, srcs=SRCLIST();
+      const k=(id)=>{const s=srcs.find(x=>x.id===id);return s?s.kind:'v'};
+      if(d.srcId===null){alert('Place a source and pick one to sweep.');return}
+      const spec={srcId:d.srcId,kind:k(d.srcId),from:pv(d.from),to:pv(d.to),points:+d.points};
+      if(d.stepOn&&d.stepSrc!==null&&d.stepSrc!==d.srcId)
+        spec.step={srcId:d.stepSrc,kind:k(d.stepSrc),from:pv(d.stepFrom),to:pv(d.stepTo),points:+d.stepPoints};
+      simRes={kind:'dc',ct,sw:dcSweep(ct,spec),spec};
+    } else {
+      const a=simCfg.ac;
+      if(a.srcId===null){alert('AC needs a voltage source to drive.');return}
+      const out=acAnalysis(ct,{srcId:a.srcId,fstart:pv(a.fstart),fstop:pv(a.fstop),points:+a.points});
+      if(out.err){alert(out.err);return}
+      simRes={kind:'ac',ct,out};
+    }
+  }catch(err){ alert('Solver failed: '+err.message); return; }
+  const ms=(performance.now()-t0).toFixed(0);
+  plView=null;
+  if(anaType!=='op'&&!signalList(ct).some(s=>probe[s.k]))
+    toast('nothing probed \u2014 press "Probe nets", click the nets you want, then Run');
+  const nm=ct.devs.filter(d=>d.kind==='m').length;
+  let extra='';
+  if(simRes.kind==='tran')extra=`${simRes.out.t.length} points`;
+  if(simRes.kind==='dc')  extra=`${simRes.sw.runs.length}×${simRes.sw.runs[0].x.length} points`+
+    (simRes.sw.runs.some(r=>r.bad)?` · ⚠ ${simRes.sw.runs.reduce((a,r)=>a+r.bad,0)} did not converge`:'');
+  if(simRes.kind==='ac') extra=`${simRes.out.f.length} frequencies`;
+  if(simRes.kind==='op') extra=`${simRes.op.mos.filter(d=>d.region==='saturation').length}/${nm} in saturation`;
+  document.getElementById('simstat').textContent=
+    `${nm} transistors · ${ct.free.length} unknowns · ${extra} · ${ms} ms`;
+  simSetup(); plot(); measPanel();
+}
+/* pick sensible traces when the user has not chosen any */
+function autoProbe(){
+  const ct=simRes.ct, sigs=signalList(ct);
+  const swings={};
+  sigs.filter(s=>s.kind==='v').forEach(s=>{
+    const y=seriesFor(s); if(!y)return;
+    swings[s.k]=Math.max(...y.flat())-Math.min(...y.flat());
+  });
+  const any=Object.values(swings).some(v=>v>0.05);
+  sigs.forEach(s=>probe[s.k]= s.kind==='v' && (!any || swings[s.k]>0.05));
+}
+/* y values for one signal, as an array of arrays (one per DC family curve) */
+function seriesFor(s){
+  if(!simRes)return null;
+  if(simRes.kind==='tran')return s.kind==='v'?[simRes.out.v[s.node]]:null;
+  if(simRes.kind==='ac')  return s.kind==='v'?[simRes.out.v[s.node].map(c=>dB(c))]:null;
+  if(simRes.kind==='dc'){
+    if(s.kind==='v')return simRes.sw.runs.map(r=>r.V.map(V=>V[s.node]));
+    return simRes.sw.runs.map(r=>r.dev.map(row=>row[s.di]?row[s.di][s.param]:0));
+  }
+  return null;
+}
+function measPanel(){
+  const box=document.getElementById('measBox');
+  if(!simRes){box.innerHTML='';return}
+  const line=(a,b)=>`<div class="mline"><span>${a}</span><span>${b}</span></div>`;
+  if(simRes.kind==='op'){
+    box.innerHTML=simRes.op.mos.map(d=>
+      line(d.key+(d.nm?' · '+d.nm:''),`${fv(d.Id,'A')} · gm ${fv(d.gm,'S')} · ro ${fv(d.ro,'Ω')} · ${d.region}`)).join('');
+    return;
+  }
+  if(simRes.kind==='ac'){
+    const on=signalList(simRes.ct).filter(s=>s.kind==='v'&&probe[s.k]);
+    if(!on.length){box.innerHTML=`<div style="padding:4px 12px 8px;font-size:11px;color:var(--dim)">Pick a node.</div>`;return}
+    const s=on[on.length-1], v=simRes.out.v[s.node], f=simRes.out.f;
+    const mag=v.map(dB), A0=mag[0];
+    const iu=mag.findIndex(m=>m<0);
+    const i3=mag.findIndex(m=>m<A0-3.0103);
+    let h=line('measured on',s.label)+line('DC gain',A0.toFixed(2)+' dB');
+    if(i3>0)h+=line('−3 dB',fv(f[i3],'Hz'));
+    if(iu>0){h+=line('unity gain',fv(f[iu],'Hz'));
+             h+=line('phase there',phase(v[iu]).toFixed(1)+'°');
+             h+=line('phase margin',(180+phase(v[iu])).toFixed(1)+'°');}
+    else h+=line('unity gain','not reached in range');
+    box.innerHTML=h;
+    return;
+  }
+  if(simRes.kind==='dc'){
+    const on=signalList(simRes.ct).filter(s=>probe[s.k]);
+    if(!on.length){box.innerHTML='';return}
+    const s=on[on.length-1], ys=seriesFor(s);
+    const flat=ys.flat();
+    box.innerHTML=line('measured on',s.label)
+      +line('min',fv(Math.min(...flat),s.unit))
+      +line('max',fv(Math.max(...flat),s.unit))
+      +line('at sweep end',fv(ys[0][ys[0].length-1],s.unit));
+    return;
+  }
+  /* transient: keep the rise/fall/propagation measurements */
+  const {out,ct}=simRes, names=ct.N.map(n=>n.name);
+  const src=comps.find(c=>c.key==='vpulse');
+  let inN=null;
+  if(src){const i=BY[src.key].pins.findIndex(p=>p.nm==='p');
+    const nn=ct.N.find(n=>n.keys.includes(pinKey(src,i)));if(nn)inN=nn.name;}
+  let outN=null,best=0;
+  names.forEach(n=>{if(n===inN)return;const y=out.v[n];
+    const sw=Math.max(...y)-Math.min(...y);if(sw>best){best=sw;outN=n}});
+  if(!inN||!outN){box.innerHTML=
+    `<div style="padding:4px 12px 8px;font-size:11px;color:var(--dim)">Needs a pulse source and an output net.</div>`;return}
+  const m=measure(out.t,out.v[inN],out.v[outN]);
+  box.innerHTML= m? Object.entries(m).map(([k,v])=>
+    line(k,fv(v,/V/.test(k)||/swing/.test(k)?'V':'s'))).join('')+line('measured on',outN)
+    :`<div style="padding:4px 12px 8px;font-size:11px;color:var(--dim)">Output did not switch.</div>`;
+}
+
+/* ==========================================================================
+   Plot. One renderer for all analyses: it is handed an X axis (linear time,
+   linear sweep value, or log frequency) and a set of traces.
+   ========================================================================== */
+function plotModel(){
+  if(!simRes||simRes.kind==='op')return null;
+  const all=signalList(simRes.ct);
+  const sigs=all.filter(s=>probe[s.k]);
+  /* colour index must be found by key: signalList() rebuilds its objects on
+     every call, so indexOf() across two separate calls never matches and every
+     trace came out with stroke="undefined" */
+  const ci=s=>all.findIndex(a=>a.k===s.k);
+  const traces=[];
+  if(simRes.kind==='tran'){
+    sigs.forEach(s=>{const y=seriesFor(s);if(y)traces.push({label:s.label,y:y[0],ci:ci(s)})});
+    return {x:simRes.out.t,xlabel:'s',xlog:false,ylabel:'V',traces};
+  }
+  if(simRes.kind==='ac'){
+    sigs.forEach(s=>{const y=seriesFor(s);if(y)traces.push({label:s.label,y:y[0],ci:ci(s)})});
+    const m={x:simRes.out.f,xlabel:'Hz',xlog:true,ylabel:'dB',traces};
+    if(simCfg.ac.phase&&sigs.length)
+      m.phase={y:simRes.out.v[sigs[sigs.length-1].node].map(phase),label:sigs[sigs.length-1].label};
+    return m;
+  }
+  const runs=simRes.sw.runs;
+  const su=simRes.spec.step?(simRes.spec.step.kind==='i'?'A':'V'):'';
+  /* In a family the interesting axis is the step, so colour tracks the step and
+     the dash pattern separates one probed signal from another. */
+  sigs.forEach((s,si)=>{
+    const ys=seriesFor(s); if(!ys)return;
+    ys.forEach((y,ri)=>traces.push({
+      label:s.label+(runs.length>1?`  [${fv(runs[ri].step,su)}]`:''),
+      y, ci: runs.length>1?ri:ci(s), dash: runs.length>1?si:0}));
+  });
+  const unit=sigs.length?sigs[sigs.length-1].unit:'';
+  return {x:runs[0].x,xlabel:simRes.spec.kind==='i'?'A':'V',xlog:false,ylabel:unit,traces};
+}
+function plot(){
+  const sv=document.getElementById('pl');
+  const hint=document.getElementById('plhint');
+  const M=plotModel();
+  if(!M||!M.traces.length){
+    sv.innerHTML=''; hint.textContent= simRes&&simRes.kind==='op'
+      ? 'operating point is annotated on the schematic' : '';
+    return;
+  }
+  const W=sv.clientWidth||900,H=sv.clientHeight||600,L=70,Rp=M.phase?58:18,Tp=18,B=42;
+  const tx=v=>M.xlog?Math.log10(Math.max(1e-300,v)):v;
+  if(!plView)plView={t0:tx(M.x[0]),t1:tx(M.x[M.x.length-1])};
+  const {t0,t1}=plView;
+  let lo=1e300,hi=-1e300;
+  M.traces.forEach(tr=>tr.y.forEach((y,i)=>{
+    const xv=tx(M.x[i]); if(xv<t0||xv>t1||!isFinite(y))return;
+    lo=Math.min(lo,y);hi=Math.max(hi,y)}));
+  if(lo>hi){lo=0;hi=1}
+  const pad=(hi-lo)*0.1||Math.abs(hi)*0.1||0.2; lo-=pad; hi+=pad;
+  const X=v=>L+(tx(v)-t0)/(t1-t0||1)*(W-L-Rp), Y=v=>Tp+(hi-v)/(hi-lo||1)*(H-Tp-B);
+  const tick=(a,b)=>{const s0=(b-a)/6,e=Math.pow(10,Math.floor(Math.log10(Math.abs(s0)||1)));
+    const m=[1,2,2.5,5,10].find(x=>x*e>=s0)||10;const st=m*e;
+    const o=[];for(let v=Math.ceil(a/st)*st;v<=b;v+=st)o.push(v);return o};
+  let g='';
+  tick(lo,hi).forEach(v=>{g+=`<line x1="${L}" y1="${Y(v)}" x2="${W-Rp}" y2="${Y(v)}" stroke="#1C242D"/>
+    <text x="${L-8}" y="${Y(v)+3.5}" text-anchor="end" font-family="var(--mono)" font-size="10" fill="#657483">${
+      Math.abs(v)>=1e4||(Math.abs(v)<1e-3&&v!==0)?v.toExponential(1):v.toFixed(Math.abs(v)<1?3:2)}</text>`});
+  if(M.xlog){
+    for(let d=Math.ceil(t0);d<=t1;d++){const fx=Math.pow(10,d);
+      g+=`<line x1="${X(fx)}" y1="${Tp}" x2="${X(fx)}" y2="${H-B}" stroke="#1C242D"/>
+      <text x="${X(fx)}" y="${H-B+16}" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="#657483">${fv(fx,'Hz')}</text>`}
+  } else {
+    tick(t0,t1).forEach(v=>{g+=`<line x1="${X(v)}" y1="${Tp}" x2="${X(v)}" y2="${H-B}" stroke="#1C242D"/>
+      <text x="${X(v)}" y="${H-B+16}" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="#657483">${fv(v,M.xlabel)}</text>`});
+  }
+  g+=`<rect x="${L}" y="${Tp}" width="${W-L-Rp}" height="${H-Tp-B}" fill="none" stroke="#2A3541"/>`;
+  g+=`<text x="${L-8}" y="${Tp-6}" text-anchor="end" font-family="var(--mono)" font-size="10" fill="#657483">${M.ylabel}</text>`;
+  /* phase on a right-hand axis */
+  if(M.phase){
+    const pl=-270,ph=90;
+    const PY=v=>Tp+(ph-v)/(ph-pl)*(H-Tp-B);
+    [-270,-180,-90,0,90].forEach(v=>{
+      g+=`<text x="${W-Rp+8}" y="${PY(v)+3.5}" font-family="var(--mono)" font-size="10" fill="#8A6FA8">${v}°</text>`;
+      if(v===-180)g+=`<line x1="${L}" y1="${PY(v)}" x2="${W-Rp}" y2="${PY(v)}" stroke="#3A2E4A" stroke-dasharray="4 4"/>`;
+    });
+    let d='',st=false;
+    M.x.forEach((xv,i)=>{const t=tx(xv); if(t<t0||t>t1)return;
+      d+=(st?'L':'M')+X(xv).toFixed(2)+','+PY(M.phase.y[i]).toFixed(2);st=true});
+    g+=`<path d="${d}" fill="none" stroke="#B79BE0" stroke-width="1.4" stroke-dasharray="5 3"/>`;
+    g+=`<text x="${W-Rp+8}" y="${Tp-6}" font-family="var(--mono)" font-size="10" fill="#B79BE0">phase</text>`;
+  }
+  M.traces.forEach(tr=>{
+    let d='',st=false;
+    M.x.forEach((xv,i)=>{const t=tx(xv); if(t<t0-1e-18||t>t1+1e-18)return;
+      const y=tr.y[i]; if(!isFinite(y))return;
+      d+=(st?'L':'M')+X(xv).toFixed(2)+','+Y(y).toFixed(2);st=true});
+    g+=`<path d="${d}" fill="none" stroke="${TRC[tr.ci%TRC.length]}" stroke-width="1.7"
+        stroke-linejoin="round"${tr.dash?` stroke-dasharray="${1+tr.dash*3} ${1+tr.dash*2}"`:''}/>`;
+  });
+  M.traces.slice(0,8).forEach((tr,i)=>{
+    g+=`<rect x="${L+10}" y="${Tp+6+i*14}" width="9" height="9" fill="${TRC[tr.ci%TRC.length]}"/>
+        <text x="${L+24}" y="${Tp+15+i*14}" font-family="var(--mono)" font-size="10.5" fill="#AFBDCA">${tr.label}</text>`});
+  if(plCur!==null&&plCur>=L&&plCur<=W-Rp){
+    const t=t0+(plCur-L)/(W-L-Rp)*(t1-t0);
+    const xv=M.xlog?Math.pow(10,t):t;
+    g+=`<line x1="${plCur}" y1="${Tp}" x2="${plCur}" y2="${H-B}" stroke="var(--sel)" stroke-dasharray="4 3"/>`;
+    let yy=Tp+34+M.traces.length*14;
+    g+=`<text x="${plCur+7}" y="${Tp+28+M.traces.length*14}" font-family="var(--mono)" font-size="10.5" fill="var(--sel)">${fv(xv,M.xlabel)}</text>`;
+    let k=0;while(k<M.x.length-1&&M.x[k]<xv)k++;
+    M.traces.slice(0,8).forEach(tr=>{
+      const v=tr.y[k]; if(v===undefined)return;
+      yy+=14;
+      g+=`<circle cx="${plCur}" cy="${Y(v)}" r="3" fill="${TRC[tr.ci%TRC.length]}"/>
+          <text x="${plCur+7}" y="${yy}" font-family="var(--mono)" font-size="10.5" fill="${TRC[tr.ci%TRC.length]}">${fv(v,M.ylabel)}</text>`;
+    });
+  }
+  sv.innerHTML=g;
+  hint.textContent='scroll to zoom · drag to pan · double-click resets';
+}
+(function plotEvents(){
+  const sv=document.getElementById('pl');let pd=null;
+  sv.addEventListener('mousemove',e=>{
+    const r=sv.getBoundingClientRect();
+    if(pd&&simRes){const W=sv.clientWidth,L=70,Rp=18;
+      const dt=(e.clientX-pd.x)/(W-L-Rp)*(pd.t1-pd.t0);
+      plView={t0:pd.t0-dt,t1:pd.t1-dt};}
+    plCur=e.clientX-r.left;plot();});
+  sv.addEventListener('mouseleave',()=>{plCur=null;plot()});
+  sv.addEventListener('mousedown',e=>{if(!plView)return;
+    pd={x:e.clientX,t0:plView.t0,t1:plView.t1}});
+  window.addEventListener('mouseup',()=>pd=null);
+  sv.addEventListener('dblclick',()=>{if(simRes){plView=null;plot()}});
+  sv.addEventListener('wheel',e=>{
+    if(!simRes||!plView)return;e.preventDefault();
+    const r=sv.getBoundingClientRect(),W=sv.clientWidth,L=70,Rp=18;
+    const fx=Math.max(0,Math.min(1,(e.clientX-r.left-L)/(W-L-Rp)));
+    const t=plView.t0+fx*(plView.t1-plView.t0);
+    const f=e.deltaY<0?1/1.25:1.25;
+    const span=(plView.t1-plView.t0)*f;
+    plView={t0:t-fx*span,t1:t+(1-fx)*span};plot();
+  },{passive:false});
+})();
+
+document.getElementById('bSim').onclick=()=>openSim();
+/* Probe: hide the simulator, hand the schematic a scope-probe cursor, and come
+   back here on escape. This is the "tell me what to plot" step. */
+document.getElementById('simProbe').onclick=()=>{
+  document.getElementById('sim').classList.remove('show');
+  probeReturn=true; setMode('probe');
+  toast('click nets to probe them \u00b7 esc returns to the simulator');
+};
+/* Check: validate the netlist without simulating anything. */
+document.getElementById('simCheck').onclick=()=>{
+  const ct=buildCircuit();
+  const msgs=[];
+  const nm=ct.devs.filter(d=>d.kind==='m').length;
+  noDCPath(ct).forEach(()=>{});
+  const nodc=noDCPath(ct);
+  if(nodc.length)msgs.push(['e',dcPathAdvice(nodc,ct)]);
+  ct.warn.forEach(w=>msgs.push(['w',w]));
+  if(!nm&&!ct.ress.length&&!ct.caps.length)msgs.push(['e','Nothing to simulate.']);
+  const probed=Object.keys(probe).filter(k=>probe[k]).length;
+  if(!probed)msgs.push(['w','No nets probed — press "Probe nets" and click the ones you want to plot.']);
+  if(!msgs.length)msgs.push(['o',`${nm} transistors, ${ct.free.length} unknown nodes, ${probed} probed. Ready.`]);
+  document.getElementById('out').textContent=msgs.map(m=>
+    (m[0]==='e'?'\u2716  ':m[0]==='w'?'\u26a0  ':'\u2713  ')+m[1]).join('\n\n');
+  document.querySelector('#card h3').textContent='Netlist check';
+  document.getElementById('bProg').style.display='none';
+  document.getElementById('bDl').style.display='none';
+  document.getElementById('picolog').classList.remove('on');
+  document.getElementById('modal').classList.add('show');
+};
+function openSim(){
+  document.getElementById('sim').classList.add('show');
+  simSetup(); plot(); measPanel();      /* shows the last result, does not compute */
+}
+document.getElementById('simRun').onclick=()=>{runSim()};
+
+document.getElementById('simX').onclick=()=>document.getElementById('sim').classList.remove('show');
+
+/* ==========================================================================
+   Device information.
+
+   Everything here was read out of the block .asc files in MOSbius_chip_library
+   and the model wrappers in transistor_models_tsmc025_public.inc:
+     unit device W = 4 um, L = 0.5 um
+     nMOS unit = 2 fingers, pMOS unit = 6 fingers
+   so a device drawn with multiplier m has 2m (nMOS) or 6m (pMOS) fingers, and
+   a total width of 8m um (nMOS) or 24m um (pMOS).
+
+   NOTE ON BIAS: MOSbius specifies no operating current anywhere in its library
+   or docs. The chip is an inventory of transistors \u2014 the bias is yours to pick.
+   The only guidance upstream is two notes on the top-level chip schematic:
+     "Push your nMOS bias current into this node"   (pin 19)
+     "Pull your pMOS bias current from this node"   (pin 68)
+   ========================================================================== */
+const FING={n:2,p:6};
+const DEVI={
+ cs_nmos_4x_a:{s:'Common-source nMOS.',d:[['M1','n',4]],tie:'source + bulk \u2192 on-die ground',bias:'400 µA at 200 mV overdrive (size 4)'},
+ cs_nmos_4x_b:{s:'Common-source nMOS.',d:[['M1','n',4]],tie:'source + bulk \u2192 on-die ground',bias:'400 µA at 200 mV overdrive (size 4)'},
+ cs_pmos_4x_a:{s:'Common-source pMOS.',d:[['M1','p',4]],tie:'source + nwell \u2192 on-die VDD',bias:'400 µA at 200 mV overdrive (size 4)'},
+ cs_pmos_4x_b:{s:'Common-source pMOS.',d:[['M1','p',4]],tie:'source + nwell \u2192 on-die VDD',bias:'400 µA at 200 mV overdrive (size 4)'},
+ dp_nmos_1x_a:{s:'One half of a matched nMOS pair. Wire A and B together yourself.',d:[['M1','n',1]],tie:'bulk \u2192 on-die ground',bias:'100 µA per side (size 1) → 200 µA tail'},
+ dp_nmos_1x_b:{s:'One half of a matched nMOS pair. Wire A and B together yourself.',d:[['M1','n',1]],tie:'bulk \u2192 on-die ground',bias:'100 µA per side (size 1) → 200 µA tail'},
+ dp_nmos_4x_a:{s:'One half of a matched nMOS pair.',d:[['M1','n',4]],tie:'nothing \u2014 source and substrate are both brought out',bias:'400 µA per side (size 4) → 800 µA tail',
+   note:'substrate is pin 47, the SAME pad as DP nMOS 4x B. Both halves share it.'},
+ dp_nmos_4x_b:{s:'One half of a matched nMOS pair.',d:[['M1','n',4]],tie:'nothing \u2014 source and substrate are both brought out',bias:'400 µA per side (size 4) → 800 µA tail',
+   note:'substrate is pin 47, the SAME pad as DP nMOS 4x A. Both halves share it.'},
+ dp_pmos_1x_a:{s:'One half of a matched pMOS pair.',d:[['M1','p',1]],tie:'nwell \u2192 on-die VDD',bias:'100 µA per side (size 1) → 200 µA tail'},
+ dp_pmos_1x_b:{s:'One half of a matched pMOS pair.',d:[['M1','p',1]],tie:'nwell \u2192 on-die VDD',bias:'100 µA per side (size 1) → 200 µA tail'},
+ dp_pmos_4x_a:{s:'One half of a matched pMOS pair.',d:[['M1','p',4]],tie:'nothing \u2014 source and nwell are both brought out',bias:'400 µA per side (size 4) → 800 µA tail',
+   note:'nwell is pin 5, the SAME pad as DP pMOS 4x B. Both halves share it.'},
+ dp_pmos_4x_b:{s:'One half of a matched pMOS pair.',d:[['M1','p',4]],tie:'nothing \u2014 source and nwell are both brought out',bias:'400 µA per side (size 4) → 800 µA tail',
+   note:'nwell is pin 5, the SAME pad as DP pMOS 4x A. Both halves share it.'},
+ inverter_a:{s:'Split-input CMOS inverter.',d:[['M2 (pull-up)','p',16],['M1 (pull-down)','n',16]],
+   tie:'pMOS source \u2192 VDD, nMOS source \u2192 ground',bias:'digital — no bias current',
+   note:'inp drives the pMOS gate, inn drives the nMOS gate \u2014 they are independent. '+
+        'Tie them together for a normal inverter; drive them apart for a tri-state or a class-AB stage.'},
+ inverter_b:{s:'Split-input CMOS inverter.',d:[['M2 (pull-up)','p',16],['M1 (pull-down)','n',16]],
+   tie:'pMOS source \u2192 VDD, nMOS source \u2192 ground',bias:'digital — no bias current',
+   note:'inp drives the pMOS gate, inn drives the nMOS gate \u2014 they are independent.'},
+ nmos_currentmirror:{s:'1:1 nMOS current mirror, input diode-connected.',
+   d:[['M1 (in)','n',1],['M2 (out)','n',1]],tie:'both sources \u2192 on-die ground',bias:'out = 1 × I<sub>REF</sub> = 100 µA'},
+ pmos_currentmirror:{s:'1:1 pMOS current mirror, input diode-connected.',
+   d:[['M1 (in)','p',1],['M2 (out)','p',1]],tie:'both sources \u2192 on-die VDD',bias:'out = 1 × I<sub>REF</sub> = 100 µA'},
+ nmos_currentmirror_array:{s:'Binary-weighted nMOS mirror bank, input diode-connected.',
+   d:[['M1 (in)','n',1],['M2 out1','n',1],['M3 out2','n',2],['M4 out4','n',4],
+      ['M5 out8','n',8],['M6 out16','n',16],['M7 out32','n',32]],
+   tie:'all sources \u2192 on-die ground',bias:'out1..out32 = 0.1, 0.2, 0.4, 0.8, 1.6, 3.2 mA',
+   note:'Push your nMOS bias current INTO pin 19. Outputs may be paralleled for ratios '+
+        'other than the binary set (1+2+4 = 7\u00d7, and so on).'},
+ pmos_currentmirror_array:{s:'Binary-weighted pMOS mirror bank, input diode-connected.',
+   d:[['M1 (in)','p',1],['M2 out1','p',1],['M3 out2','p',2],['M4 out4','p',4],
+      ['M5 out8','p',8],['M6 out16','p',16]],
+   tie:'all sources \u2192 on-die VDD',bias:'out1..out16 = 0.1, 0.2, 0.4, 0.8, 1.6 mA',
+   note:'Pull your pMOS bias current FROM pin 68. Outputs may be paralleled.'},
+ ota_nmos:{s:'Five-transistor OTA (operational transconductance amplifier), nMOS input pair.',
+   d:[['M1 tail','n',2],['M2 in+','n',1],['M3 in\u2212','n',1],['M4 load','p',1],['M5 load','p',1]],
+   tie:'tail source \u2192 ground, load sources \u2192 VDD',bias:'tail m=2 → 200 µA; 100 µA per input device',
+   note:'biasn is the GATE of the tail device M1 \u2014 a voltage node, not a current input. '+
+        'It is pin 19, the same pad as the nMOS mirror array input, so the intended use is '+
+        'to push a reference current into pin 19 and let the tail mirror it. Tail is m=2, '+
+        'the input pair m=1, so the tail carries roughly twice a unit device.'},
+ ota_pmos:{s:'Five-transistor OTA (operational transconductance amplifier), pMOS input pair.',
+   d:[['M1 tail','p',2],['M2 in+','p',1],['M3 in\u2212','p',1],['M4 load','n',1],['M5 load','n',1]],
+   tie:'tail source \u2192 VDD, load sources \u2192 ground',bias:'tail m=2 → 200 µA; 100 µA per input device',
+   note:'biasp is the GATE of the tail device M1, which sits at the TOP of the amplifier '+
+        '(source on VDD) \u2014 which is why this pin is drawn on top. It is pin 68, the same pad '+
+        'as the pMOS mirror array input; pull your reference current from there.'},
+ chip_vdd:{s:'On-die supply tap. Route a bus here instead of wiring a bus to VDD directly.',d:[],tie:'\u2014'},
+ chip_vss:{s:'On-die ground tap. Route a bus here instead of wiring a bus to VSS directly.',d:[],tie:'\u2014'},
+};
+/* The design anchor, quoted from mosbius.org/1_chapter_description. This is the
+   one sentence that makes the whole inventory make sense, and it is easy to miss. */
+const ANCHOR=
+ '<b style="color:var(--accent)">The 200 mV / 100 \u00b5A anchor.</b> Every device on the die is an '+
+ 'integer multiple of a unit transistor that was sized to sit at an overdrive '+
+ '(V<sub>GS</sub>\u2212V<sub>TH</sub>) of <b>200 mV</b> at <b>I<sub>DS</sub> = 100 \u00b5A</b>. '+
+ 'Unit nMOS is W/L = 16 (8 \u00b5m/0.5 \u00b5m, 2 fingers); unit pMOS is W/L = 48 (24 \u00b5m/0.5 \u00b5m, 6 fingers). '+
+ 'So choosing an operating point mostly reduces to choosing a mirror ratio: an N\u00d7 device fed '+
+ 'N \u00d7 I<sub>REF</sub> sits at that same 200 mV overdrive. '+
+ 'I<sub>REF</sub> is set by the PCB potentiometers \u2014 <b>100 \u00b5A</b> is the value every published '+
+ 'MOSbius lab uses. Push it into pin 19 (nMOS side), pull it from pin 68 (pMOS side).';
+const GMI=
+ 'Published g<sub>m</sub>/I anchors, from Columbia\'s two-stage Miller OTA at I<sub>REF</sub> = 100 \u00b5A: '+
+ '<b>\u224812</b> for a 4\u00d7 pMOS input pair in weak inversion (g<sub>m</sub> = 1.1 mS), '+
+ '<b>\u22487</b> for a 16\u00d7 nMOS second stage in strong inversion (g<sub>m</sub> = 12 mS). '+
+ 'That amplifier measures 69 dB DC gain, 1.10 MHz unity-gain frequency and about \u22125 mV input offset.';
+const GAPS=
+ 'Not published anywhere: power consumption, input-referred noise, slew rate, and bus capacitance. '+
+ 'The crossbar switch is documented only as <b>15 \u03a9</b> per transmission gate; ESD series resistors '+
+ 'are 50 \u03a9 (1\u00d7), 25 \u03a9 (2\u00d7) and 12.5 \u03a9 (4\u00d7 and larger). Those parasitics are not in this simulator.';
+const PROCNOTE=
+ 'Process note: the die is <b>65 nm CMOS thick-oxide</b> devices at 2.5 V. The TSMC 0.25 \u00b5m model '+
+ 'card shipped with the LTspice library \u2014 and used by this editor\'s simulator \u2014 is a stand-in that '+
+ 'Columbia reports gives results "quite close" to measurement. Treat simulated numbers as indicative.';
+
+function devInfoHTML(key){
+  const I=DEVI[key]; if(!I)return '';
+  const W=(t,m)=>FING[t]*m*MP.WF;
+  const rows=I.d.map(([nm,t,m])=>
+    `<div class="mline"><span>${nm}</span><span>${t==='n'?'nMOS':'pMOS'} m=${m} \u00b7 `+
+    `${FING[t]*m} fingers \u00b7 W=${W(t,m)}\u00b5m L=${MP.L}\u00b5m</span></div>`).join('');
+  const small=(txt,col)=>`<div style="font-size:10.5px;color:${col||'var(--dim)'};line-height:1.62;
+      margin-top:10px;border-top:1px solid var(--line);padding-top:9px">${txt}</div>`;
+  return `<div style="font-size:11.5px;color:var(--text);line-height:1.6;margin-bottom:8px">${I.s}</div>`
+   +(rows?`<div style="margin:0 -16px 8px">${rows}</div>`:'')
+   +`<div class="mline"><span>hardwired on-die</span><span>${I.tie}</span></div>`
+   +(I.bias?`<div class="mline"><span>at I<sub>REF</sub> = 100 \u00b5A</span><span>${I.bias}</span></div>`:'')
+   +(I.note?`<div style="font-size:11px;color:#E4CE93;line-height:1.6;margin-top:9px">${I.note}</div>`:'')
+   +small(ANCHOR,'var(--text)')+small(GMI)+small(GAPS)+small(PROCNOTE);
+}
+
+/* ---------- properties / info dialog: double-click, or "q" on a selection ---------- */
+let pTarget=null;
+function openProps(c){
+  if(c.key==='text'){openTextDialog(c);return}
+  pTarget=PDEF[c.key]?c:null;
+  document.getElementById('ptitle').textContent=BY[c.key].n+(PDEF[c.key]?' \u2014 properties':' \u2014 device info');
+  const editable=PDEF[c.key]?Object.keys(PDEF[c.key]).map(k=>
+    `<div class="prow"><label>${PLBL[k]}</label>
+      <input data-pk="${k}" value="${(c.props&&c.props[k])??''}" placeholder="${PDEF[c.key][k]}">
+      <span class="u">${PUNIT[k]}</span></div>`).join('')
+    +`<div style="font-size:10.5px;color:var(--dim);margin-top:6px;line-height:1.6">
+      SPICE suffixes work: <span style="font-family:var(--mono)">f p n u m k M G</span>.
+      "20n" is 20&nbsp;ns, "5" is 5&nbsp;s. Left blank, the greyed default is used.<br>
+      <b>enter</b> saves \u00b7 <b>esc</b> cancels.</div>`:'';
+  document.getElementById('pbody').innerHTML=editable+devInfoHTML(c.key);
+  document.getElementById('pOk').style.display=PDEF[c.key]?'':'none';
+  document.getElementById('pX').textContent=PDEF[c.key]?'Cancel':'Close';
+  document.getElementById('pmodal').classList.add('show');
+  /* land the caret in the first value field so q -> type -> enter needs no mouse */
+  const first=document.querySelector('#pbody [data-pk]');
+  if(first)setTimeout(()=>{first.focus();first.select()},0);
+}
+/* ---------- text annotation dialog ---------- */
+let tEdit=null;                       // component being edited, or null when placing new
+function openTextDialog(c){
+  tEdit=c||null;
+  const {s,z,a}=TXT(c);
+  document.getElementById('ttitle').textContent=c?'Edit text':'Text annotation';
+  document.getElementById('tText').value=c?s:'';
+  document.getElementById('tSize').value=z;
+  document.querySelectorAll('#tAlign button').forEach(b=>b.classList.toggle('on',b.dataset.al===a));
+  document.getElementById('tmodal').classList.add('show');
+  setTimeout(()=>document.getElementById('tText').focus(),0);
+}
+document.getElementById('tAlign').addEventListener('click',e=>{
+  const b=e.target.closest('[data-al]');if(!b)return;
+  document.querySelectorAll('#tAlign button').forEach(x=>x.classList.toggle('on',x===b));
+});
+document.getElementById('tX').onclick=()=>document.getElementById('tmodal').classList.remove('show');
+document.getElementById('tOk').onclick=()=>{
+  const txt=document.getElementById('tText').value;
+  if(!txt.trim()){document.getElementById('tmodal').classList.remove('show');return}
+  const props={ text:txt,
+    size:String(Math.max(6,Math.min(96,parseFloat(document.getElementById('tSize').value)||14))),
+    align:(document.querySelector('#tAlign button.on')||{dataset:{}}).dataset.al||'left' };
+  document.getElementById('tmodal').classList.remove('show');
+  if(tEdit){ tEdit.props=props; tEdit=null; commit(); render(); return; }
+  /* hand it to the placement ghost so it can be positioned and rotated first */
+  placeKey='text'; placeProps=props; placeRot=0; placeMir=0;
+  mode='select'; draw=null; applyCursor(); render();
+};
+
+function openPropsForSelection(){
+  if(selIds.size!==1){
+    if(selIds.size)toast('select a single component to open its properties');
+    return;
+  }
+  const c=comps.find(x=>selIds.has(x.id)); if(c)openProps(c);
+}
+document.getElementById('pX').onclick=()=>document.getElementById('pmodal').classList.remove('show');
+/* pv() is a SPICE-style parser: it reads a leading number plus one suffix and
+   ignores whatever follows. So "1k5" silently becomes 1 k, not 1.5 k. Catch that
+   at entry rather than letting a mistyped value through to the simulator. */
+const VALRE=/^[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?\s*[fpnumkKMgG]?$/;
+document.getElementById('pOk').onclick=()=>{
+  if(pTarget){
+    const fields=[...document.querySelectorAll('#pbody [data-pk]')];
+    const bad=fields.find(i=>i.value.trim()&&!VALRE.test(i.value.trim()));
+    if(bad){
+      bad.style.borderColor='var(--bad)';
+      bad.focus(); bad.select();
+      toast(`"${bad.value.trim()}" isn't a value I can read — use e.g. 1.5k, 200f, 2.2m`);
+      return;                              // keep the dialog open so it can be fixed
+    }
+    pTarget.props=pTarget.props||{};
+    fields.forEach(i=>{
+      const v=i.value.trim();
+      if(v)pTarget.props[i.dataset.pk]=v; else delete pTarget.props[i.dataset.pk];
+    });
+    commit();
+  }
+  document.getElementById('pmodal').classList.remove('show');render();
+};
+
+/* ==========================================================================
+   Dialog keyboard handling. Registered in the CAPTURE phase so it runs ahead of
+   the canvas key handler — that one ignores keys typed into a field, which would
+   otherwise leave Escape doing nothing while a value input has focus.
+   ========================================================================== */
+const MODALS=[
+  {id:'pmodal', ok:'pOk', cancel:'pX'},     // properties / device info
+  {id:'tmodal', ok:'tOk', cancel:'tX'},     // text annotation
+  {id:'modal',  ok:null,  cancel:'bClose'}, // connections.json export
+];
+const openModal=()=>MODALS.find(m=>document.getElementById(m.id).classList.contains('show'));
+window.addEventListener('keydown',e=>{
+  const m=openModal(); if(!m)return;
+  if(e.key==='Escape'){
+    e.preventDefault(); e.stopPropagation();
+    document.getElementById(m.cancel).click();
+    return;
+  }
+  if(e.key==='Enter'){
+    /* the note body is a textarea, where Enter has to keep making new lines —
+       commit that one with ctrl/cmd+Enter instead */
+    if(m.id==='tmodal'&&e.target.id==='tText'&&!(e.metaKey||e.ctrlKey))return;
+    e.preventDefault(); e.stopPropagation();
+    const ok=m.ok&&document.getElementById(m.ok);
+    /* an info-only panel has no Apply button showing, so Enter just closes it */
+    if(ok&&ok.style.display!=='none') ok.click();
+    else document.getElementById(m.cancel).click();
+  }
+},true);
+
+window.addEventListener('resize',render);
+window.addEventListener('resize',()=>{if(simRes)plot()});
+
+/* ---------- boot: pick up where the last session left off ---------- */
+(function boot(){
+  const had=loadAutosave();
+  hist=[snapshot()]; hpos=0;
+  if(had){ render(); fit(); toast('restored your last schematic'); }
+  else render();
+  if(!canStore) document.getElementById('sSaved').innerHTML=
+    '<span style="color:#D6A653">⚠ autosave off in this browser — use Save</span>';
+  /* last line of defence against closing the tab on unsaved work */
+  window.addEventListener('beforeunload',e=>{
+    if(!canStore&&(comps.length||segs.length)){e.preventDefault();e.returnValue=''}
+  });
+})();
+</script>
