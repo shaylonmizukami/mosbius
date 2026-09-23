@@ -23,7 +23,7 @@
        color:var(--accent);margin-right:12px}
   button{font-family:var(--sans);font-size:12px;color:var(--text);background:#1A212A;
     border:1px solid var(--line);border-radius:4px;padding:6px 11px;cursor:pointer;
-    white-space:nowrap;flex:0 0 auto} 
+    white-space:nowrap;flex:0 0 auto}
   button:hover{border-color:#3A4654;background:#202832}
   button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
   button.on{background:#123640;border-color:var(--accent);color:#DCF7FB}
@@ -376,23 +376,23 @@ T('pmos_currentmirror','pMOS mirror 1:1','Current mirrors','pMOS 1:1',
   [['gate',62,0,80,'b'],['drain',61,140,80,'b']],
   ()=>mirror('p',[['1x',140]]),[-70,-104,210,130]),
 T('nmos_currentmirror_array','nMOS mirror array','Current mirrors','nMOS array',
-  [['in',19,0,-80,'t'],['out1',20,110,-80,'t'],['out2',21,220,-80,'t'],['out4',22,330,-80,'t'],
-   ['out8',23,440,-80,'t'],['out16',24,550,-80,'t'],['out32',25,660,-80,'t']],
-  ()=>mirror('n',[['1x',110],['2x',220],['4x',330],['8x',440],['16x',550],['32x',660]]),
-  [-70,-114,730,104]),
+  [['in',19,0,-80,'t'],['out1',20,120,-80,'t'],['out2',21,240,-80,'t'],['out4',22,360,-80,'t'],
+   ['out8',23,480,-80,'t'],['out16',24,600,-80,'t'],['out32',25,720,-80,'t']],
+  ()=>mirror('n',[['1x',120],['2x',240],['4x',360],['8x',480],['16x',600],['32x',720]]),
+  [-70,-114,790,104]),
 T('pmos_currentmirror_array','pMOS mirror array','Current mirrors','pMOS array',
-  [['in',68,0,80,'b'],['out1',67,110,80,'b'],['out2',66,220,80,'b'],['out4',65,330,80,'b'],
-   ['out8',64,440,80,'b'],['out16',63,550,80,'b']],
-  ()=>mirror('p',[['1x',110],['2x',220],['4x',330],['8x',440],['16x',550]]),
-  [-70,-104,620,130]),
+  [['in',68,0,80,'b'],['out1',67,120,80,'b'],['out2',66,240,80,'b'],['out4',65,360,80,'b'],
+   ['out8',64,480,80,'b'],['out16',63,600,80,'b']],
+  ()=>mirror('p',[['1x',120],['2x',240],['4x',360],['8x',480],['16x',600]]),
+  [-70,-104,670,130]),
 
 /* ---- OTAs ---- */
 T('ota_nmos','OTA nMOS','Amplifiers','OTA_N',
-  [['inp',32,-60,-24,'l'],['inn',33,-60,24,'l'],['out',34,72,0,'r'],['biasn',19,0,84,'b']],
-  ()=>ota('biasn',false),[-72,-56,84,100]),
+  [['inp',32,-60,-20,'l'],['inn',33,-60,20,'l'],['out',34,80,0,'r'],['biasn',19,0,80,'b']],
+  ()=>ota('biasn',false),[-72,-56,92,100]),
 T('ota_pmos','OTA pMOS','Amplifiers','OTA_P',
-  [['inp',56,-60,-24,'l'],['inn',55,-60,24,'l'],['out',54,72,0,'r'],['biasp',68,0,-84,'t']],
-  ()=>ota('biasp',true),[-72,-100,84,56]),
+  [['inp',56,-60,-20,'l'],['inn',55,-60,20,'l'],['out',54,80,0,'r'],['biasp',68,0,-80,'t']],
+  ()=>ota('biasp',true),[-72,-100,92,56]),
 
 /* ---- supply taps ---- */
 T('chip_vdd','Chip VDD','Supply taps','',[['chip_vdd',1,0,40,'b']],
@@ -518,10 +518,10 @@ function mirror(type,outs){
    belongs at the top. Read out of OTA_nMOS.asc / OTA_pMOS.asc. */
 function ota(bias,up){
   let d=P('M-34,-42 L-34,42 L52,0 Z',{f:'#101820'});
-  d+=TX(-22,-13,'+',{z:13,c:ink,a:'start'});
-  d+=TX(-22,26,'\u2212',{z:13,c:ink,a:'start'});
-  d+=P('M-60,-24 H-34')+P('M-60,24 H-34')+P('M52,0 H72');
-  d+=up? P('M0,-25 V-84') : P('M0,25 V84');
+  d+=TX(-22,-9,'+',{z:13,c:ink,a:'start'});
+  d+=TX(-22,22,'\u2212',{z:13,c:ink,a:'start'});
+  d+=P('M-60,-20 H-34')+P('M-60,20 H-34')+P('M52,0 H80');
+  d+=up? P('M0,-25 V-80') : P('M0,25 V80');
   d+=TX(12,up?-64:64,bias,{z:8.5,a:'start'});
   return d;
 }
@@ -580,12 +580,50 @@ const pinKey=(c,i)=>'p'+c.id+'_'+i;
    Undo / redo. Snapshots are cheap (a few kB) and far less bug-prone than
    trying to invert every edit operation.
    ========================================================================== */
-const SCHEMA=1;
+const SCHEMA=2;
 function snapshot(){
   return JSON.stringify({v:SCHEMA,comps,segs,busOf,alias,uid,nextNet,nameOfPin});
 }
+/* ---------- schema 1 -> 2 ----------
+   The OTAs and the two current-mirror arrays used to carry pin offsets that were
+   not multiples of G, so their pins could never line up with anything else on the
+   sheet. The offsets below were moved onto the grid; every move is along a single
+   axis. A v1 file's wires still end at the OLD positions, and connectivity is
+   exact-coincidence (see connectivity()), so those wires would silently come
+   loose. Rather than drag the wire ends — which would leave them running diagonally
+   into the pin — bridge the gap with a short axis-aligned stub, but only where
+   something was actually attached. An untouched pin gains nothing.        */
+const GRIDFIX={
+  ota_nmos:[[-60,-24,-60,-20],[-60,24,-60,20],[72,0,80,0],[0,84,0,80]],
+  ota_pmos:[[-60,-24,-60,-20],[-60,24,-60,20],[72,0,80,0],[0,-84,0,-80]],
+  nmos_currentmirror_array:[[110,-80,120,-80],[220,-80,240,-80],[330,-80,360,-80],
+                            [440,-80,480,-80],[550,-80,600,-80],[660,-80,720,-80]],
+  pmos_currentmirror_array:[[110,80,120,80],[220,80,240,80],[330,80,360,80],
+                            [440,80,480,80],[550,80,600,80]]
+};
+function migrate(o){
+  if((o.v||1)>=2 || !Array.isArray(o.comps) || !Array.isArray(o.segs)) return o;
+  const sg=o.segs, add=[];
+  o.comps.forEach(c=>{
+    const fix=GRIDFIX[c.key]; if(!fix)return;
+    fix.forEach(([ox,oy,nx,ny])=>{
+      const a=xf(c,ox,oy);                       // where the wire still ends
+      const used=sg.some(s=>(Math.abs(s.x1-a.x)<EPS&&Math.abs(s.y1-a.y)<EPS)
+                          ||(Math.abs(s.x2-a.x)<EPS&&Math.abs(s.y2-a.y)<EPS)
+                          ||onSeg(a.x,a.y,s));
+      if(!used)return;
+      const b=xf(c,nx,ny);                       // where the pin now sits
+      add.push({x1:b.x,y1:b.y,x2:a.x,y2:a.y});
+    });
+  });
+  sg.push(...add);
+  o.v=2;
+  if(add.length) setTimeout(()=>toast(add.length+' pin'+(add.length>1?'s':'')
+    +' moved onto the grid — short links added'),400);
+  return o;
+}
 function restore(s){
-  const o=JSON.parse(s);
+  const o=migrate(JSON.parse(s));
   comps=o.comps||[]; segs=o.segs||[]; busOf=o.busOf||{}; alias=o.alias||{};
   uid=o.uid||1; nextNet=o.nextNet||1; nameOfPin=o.nameOfPin||{};
   selIds=new Set(); selSegs=new Set(); drag=null; draw=null; band=null;
