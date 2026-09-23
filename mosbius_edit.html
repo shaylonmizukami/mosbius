@@ -112,13 +112,17 @@
   .prow input:focus{outline:none;border-color:var(--accent)}
   .prow .u{font-family:var(--mono);font-size:10px;color:var(--dim);flex:0 0 34px}
 
-  #tmodal{position:fixed;inset:0;background:rgba(5,8,11,.84);display:none;
+  #tmodal,#lmodal{position:fixed;inset:0;background:rgba(5,8,11,.84);display:none;
     align-items:center;justify-content:center;z-index:60}
-  #tmodal.show{display:flex}
-  #tcard{background:var(--panel);border:1px solid var(--line);border-radius:6px;width:min(460px,92vw)}
-  #tcard h3{margin:0;padding:13px 16px;border-bottom:1px solid var(--line);font-family:var(--mono);
+  #tmodal.show,#lmodal.show{display:flex}
+  #tcard,#lcard{background:var(--panel);border:1px solid var(--line);border-radius:6px;width:min(460px,92vw)}
+  #tcard h3,#lcard h3{margin:0;padding:13px 16px;border-bottom:1px solid var(--line);font-family:var(--mono);
     font-size:12px;font-weight:500;letter-spacing:.07em;color:var(--accent)}
-  #tbody{padding:12px 16px}
+  #tbody,#lbody{padding:12px 16px}
+  #lName{width:100%;font-family:var(--mono);font-size:13px;background:#0E141A;color:var(--ink);
+    border:1px solid var(--line);border-radius:3px;padding:7px 9px}
+  #lName:focus{outline:none;border-color:var(--accent)}
+  #lerr{font-size:11px;color:var(--bad);min-height:14px;margin-top:6px}
   #tText{width:100%;font-family:var(--sans);font-size:13px;background:#0E141A;color:var(--ink);
     border:1px solid var(--line);border-radius:3px;padding:7px 9px;resize:vertical;margin-bottom:10px}
   #tText:focus{outline:none;border-color:var(--accent)}
@@ -220,6 +224,20 @@
   <div id="cardfoot"><button id="tOk" class="go">OK</button><button id="tX">Cancel</button></div>
 </div></div>
 
+<div id="lmodal"><div id="lcard"><h3 id="ltitle">Net label</h3>
+  <div id="lbody">
+    <input id="lName" placeholder="VBIAS" autocomplete="off" spellcheck="false">
+    <div id="lerr"></div>
+    <div style="font-size:10.5px;color:var(--dim);margin-top:8px;line-height:1.6">
+      Every label carrying the same name is the same net, wired or not.
+      A letter or <span style="font-family:var(--mono)">_</span> first, then letters,
+      digits or <span style="font-family:var(--mono)">_</span>.<br>
+      <b>enter</b> accepts &middot; the label then follows your cursor — click to drop it
+      on a pin or a wire, <b>esc</b> cancels.</div>
+  </div>
+  <div id="cardfoot"><button id="lOk" class="go">OK</button><button id="lX">Cancel</button></div>
+</div></div>
+
 <div id="sim">
   <div id="simbar">
     <span class="brand">MAESTRO — transient</span>
@@ -288,6 +306,8 @@ const P=(d,o={})=>`<path d="${d}" fill="${o.f||'none'}" stroke="${o.s===null?'no
    while still placing them at the transformed position. */
 let TXINV='';
 const TX=(x,y,t,o={})=>`<text x="0" y="0" transform="translate(${x},${y})${TXINV}" font-family="${o.ff||'var(--mono)'}" font-size="${o.z||9}" fill="${o.c||'var(--dim)'}" text-anchor="${o.a||'middle'}" style="pointer-events:none">${t}</text>`;
+/* user-supplied strings reach the sheet as raw SVG markup, so they get escaped */
+const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
 /* ---------- MOSFET primitive ----------
    Gate lead ends at (-40k,0). Top terminal (0,-40k). Bottom terminal (0,40k).
@@ -437,6 +457,11 @@ T('noconn','No connect','Testbench','',[['x',null,0,-20,'t']],
 
 /* ---- free text annotation: no pins, carries its own content in props ---- */
 T('text','Text','Annotation','',[],c=>drawText(c),c=>bbText(c)),
+/* ---- net label: a wireless connection. Its single pin sits at the origin, so
+   dropping the label on a component pin or a wire joins it to that node, and
+   every label carrying the same name is one and the same net. ---- */
+T('netlabel','Net label','Annotation','',[['x',null,0,0,'r']],
+  c=>drawLabel(c),c=>bbLabel(c)),
 ];
 
 /* ---------- text annotation ---------- */
@@ -446,7 +471,6 @@ const TXT=c=>({ s:(c&&c.props&&c.props.text)||'Text',
 const TANCH={left:'start',center:'middle',right:'end'};
 function drawText(c){
   const {s,z,a}=TXT(c);
-  const esc=t=>t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   return String(s).split('\n').map((ln,i)=>
     TX(0, i*z*1.28, esc(ln), {z, c:'var(--ink)', a:TANCH[a], ff:'var(--sans)'})).join('');
 }
@@ -458,6 +482,18 @@ function bbText(c){
   const x0=a==='center'?-w/2:a==='right'?-w:0;
   return [x0-4, -z, x0+w+4, h-z*0.3];
 }
+
+/* ---------- net label ---------- */
+const LBLNM=c=>String((c&&c.props&&c.props.name)||'?');
+const LBLW =s=>Math.max(26,String(s).length*6.0+18);
+/* The flag hangs to the RIGHT of the anchor so the anchor dot stays visible on
+   top of whatever pin or wire it is naming. */
+function drawLabel(c){
+  const s=LBLNM(c), w=LBLW(s);
+  return P(`M0,0 L11,-10 H${w} V10 H11 Z`,{f:'#0F141A',s:'var(--accent)',w:1.3})
+       + TX(11+(w-11)/2, 3.6, esc(s), {z:9.5,c:'var(--accent)'});
+}
+function bbLabel(c){ const w=LBLW(LBLNM(c)); return [-9,-15,w+5,15] }
 
 /* ---------- composite symbol builders ---------- */
 function inverter(){
@@ -686,6 +722,17 @@ function connectivity(){
   Object.values(bucket).forEach(ids=>ids.forEach(id=>uni(id,ids[0])));
   // point lying on a segment interior
   segs.forEach((s,i)=>pts.forEach(p=>{ if(onSeg(p.x,p.y,s)) uni(p.id,'s'+i+'a'); }));
+  /* Net labels: connectivity by NAME rather than by geometry. Every label with
+     the same name is welded to the first one, which drags whatever each label is
+     physically sitting on into the same net. This is the whole point of a label
+     — a connection with no wire drawn for it. */
+  const byName={};
+  comps.forEach(c=>{
+    if(c.key!=='netlabel')return;
+    const nm=LBLNM(c); if(nm==='?')return;
+    (byName[nm]=byName[nm]||[]).push(pinKey(c,0));
+  });
+  Object.values(byName).forEach(ks=>ks.forEach(k=>uni(k,ks[0])));
   return {find, bucket, pts};
 }
 function nets(){
@@ -707,7 +754,14 @@ function nets(){
   out.forEach(n=>{
     const old=n.keys.map(k=>nameOfPin[k]).filter(Boolean).sort((a,b)=>+a.slice(3)-+b.slice(3));
     n.id=old[0]||('net'+(nextNet++));
-    n.name=alias[n.id]||n.id;
+    /* A label names the net outright, ahead of any alias: it is the more explicit
+       statement of intent and it is the one thing about the net the user can
+       actually see on the sheet. Two DIFFERENT names landing on one node is a
+       short nobody meant, so keep them all and let the UI flag it. */
+    n.labels=[...new Set(n.mem.filter(m=>m.c.key==='netlabel').map(m=>LBLNM(m.c)))]
+               .filter(x=>x!=='?');
+    n.clash=n.labels.length>1;
+    n.name=n.labels[0]||alias[n.id]||n.id;
     n.keys.forEach(k=>fresh[k]=n.id);
   });
   nameOfPin=fresh;
@@ -747,7 +801,7 @@ function render(){
   const isProbed=n=>n&&probe['V:'+n.name];
   segs.forEach((s,i)=>{
     const n=netByRoot[find('s'+i+'a')];
-    const hot=n&&hiNet===n.id, isS=selSegs.has(i), hv=hovSeg===i;
+    const hot=n&&hiNet===n.id, isS=selSegs.has(i), hv=hovSeg===i, clash=!!(n&&n.clash);
     if(isProbed(n))g+=`<line x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}"
         stroke="var(--good)" stroke-width="${6/view.k}" stroke-opacity="0.30" stroke-linecap="round"/>`;
     if(hv)g+=`<line x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}"
@@ -755,7 +809,7 @@ function render(){
         stroke-opacity="0.28" stroke-linecap="round"/>`;
     g+=`<g data-seg="${i}">
       <line x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}"
-        stroke="${isS?'var(--sel)':hv?(killing?'var(--bad)':'var(--accent)'):hot?'var(--accent)':'var(--wire)'}"
+        stroke="${isS?'var(--sel)':hv?(killing?'var(--bad)':'var(--accent)'):hot?'var(--accent)':clash?'var(--bad)':'var(--wire)'}"
         stroke-width="${isS||hot||hv?2.2:1.6}" ${isS?'stroke-dasharray="7 4"':''}/></g>`;
   });
 
@@ -938,13 +992,13 @@ function render(){
   document.getElementById('zoom').textContent=Math.round(view.k*100)+'%';
   document.getElementById('hint').innerHTML =
     placeKey ? 'click to place \u00b7 <b>r</b> rotates \u00b7 <b>shift+R</b> mirrors \u00b7 esc cancels'
-    : draw ? 'click to set a corner \u00b7 <b>r</b> flips the elbow \u00b7 click a pin or double-click to finish \u00b7 esc cancels'
-    : mode==='wire' ? 'click a pin, a wire, or empty space to start routing'
+    : draw ? 'click again to finish the wire \u00b7 <b>r</b> flips the elbow \u00b7 esc cancels'
+    : mode==='wire' ? 'click anywhere to start \u00b7 click again to finish \u2014 it need not land on anything'
     : mode==='zoom' ? 'drag a region to zoom into it \u00b7 <b>esc</b> returns to select'
     : mode==='probe' ? 'click a net to probe it \u00b7 click again to remove \u00b7 <b>esc</b> goes back to the simulator'
     : mode==='delete' ? 'click to delete \u00b7 drag a box to clear a region \u00b7 <b>esc</b> returns to select'
-    : 'drag to move or rubber-band \u00b7 shift-click adds \u00b7 <b>r</b> rotate \u00b7 <b>shift+R</b> mirror \u00b7 '
-      +'<b>q</b> properties \u00b7 <b>t</b> text \u00b7 <b>z</b> zoom \u00b7 arrows pan \u00b7 <b>ctrl+z</b> undo';
+    : 'drag a wire end to re-route it \u00b7 shift-click adds \u00b7 <b>r</b> rotate \u00b7 <b>shift+R</b> mirror \u00b7 '
+      +'<b>q</b> properties \u00b7 <b>l</b> net label \u00b7 <b>t</b> text \u00b7 <b>z</b> zoom \u00b7 <b>ctrl+z</b> undo';
 }
 
 function meter(N){
@@ -959,7 +1013,8 @@ function meter(N){
 function netPanel(N){
   const e=document.getElementById('nets');
   if(!N.length){e.innerHTML=`<div style="padding:12px;color:var(--dim);font-size:11.5px">
-    No nets yet. Place devices, press <b>w</b>, then route between pins.</div>`;return}
+    No nets yet. Place devices, press <b>w</b> and route between pins \u2014 or press
+    <b>l</b> and drop the same net label on two pins.</div>`;return}
   e.innerHTML=N.map(n=>{
     const b=busOf[n.id]||'';
     const mem=n.mem.map(m=>`${BY[m.c.key].tag||BY[m.c.key].n}.${m.nm}${m.pcb!==null?
@@ -967,6 +1022,7 @@ function netPanel(N){
     return `<div class="net ${hiNet===n.id?'hi':''}" data-net="${n.id}">
       <div class="r1"><span class="nm ${n.onchip.length?'':'off'}" data-ren="${n.id}"
         title="double-click to rename">${n.name}${n.onchip.length?'':' (off-chip)'}</span>
+      ${n.clash?`<span style="color:var(--bad);font-size:10px" title="${esc(n.labels.join(' / '))} name one node">\u26a0 ${esc(n.labels.length)} names</span>`:''}
       ${n.onchip.length?`<select class="${b?'':'unset'}" data-bus="${n.id}"><option value="">\u2014</option>
         ${[1,2,3,4,5,6,7,8,9,10].map(x=>`<option value="${x}"${x==b?' selected':''}>BUS${x}</option>`).join('')}
       </select>`:''}</div><div class="mem">${mem}</div></div>`}).join('');
@@ -983,6 +1039,12 @@ function problems(N){
   const vdd=need.find(n=>n.onchip.some(x=>x.pcb===1)), vss=need.find(n=>n.onchip.some(x=>x.pcb===18));
   if(vdd&&vss&&busOf[vdd.id]&&busOf[vdd.id]===busOf[vss.id])
     m.push(['e',`${vdd.name}: chip_vdd and chip_vss on one bus \u2014 shorts the supply.`]);
+
+  /* Labels connect by name, so a second name on a node that already has one is a
+     short the user cannot see as a wire. Say so before it reaches the bitstream. */
+  N.filter(n=>n.clash).forEach(n=>
+    m.push(['e',`net labels ${n.labels.join(' and ')} name the same node \u2014 `+
+                `they are shorted together.`]));
 
   const seen={};
   need.forEach(n=>{const b=busOf[n.id];if(!b)return;
@@ -1049,6 +1111,8 @@ function instLabel(c){
     return 'sin '+(a?fv(pv(a),'V'):'?')+' @ '+(f?fv(pv(f),'Hz'):'?');
   }
   if(c.key==='noconn') return '';
+  /* a net label already says its name on the sheet — a caption would just repeat it */
+  if(c.key==='netlabel') return '';
   if(c.key==='gnd'||c.key==='chip_vdd'||c.key==='chip_vss') return '';
   return c.key;
 }
@@ -1100,6 +1164,43 @@ function snapTarget(w){
   }
   return {x:sn(w.x),y:sn(w.y),kind:'grid'};
 }
+/* The grab handle at a wire's end. An endpoint is what you reach for when you
+   want to re-route a wire, so it wins over the body of the segment it belongs to
+   and over whatever device happens to sit under it. */
+function endAt(w){
+  let best=null, bd=9/view.k;
+  segs.forEach((s,i)=>{
+    [[s.x1,s.y1,1],[s.x2,s.y2,2]].forEach(([x,y,end])=>{
+      const d=Math.hypot(x-w.x,y-w.y);
+      if(d<bd){bd=d;best={i,end,x,y}}
+    });
+  });
+  return best;
+}
+/* Every endpoint sitting exactly on the grabbed one, so that a corner travels as
+   a corner instead of quietly coming apart. */
+const endsAt=(x,y)=>{
+  const out=[];
+  segs.forEach((s,i)=>{
+    if(Math.abs(s.x1-x)<EPS&&Math.abs(s.y1-y)<EPS)out.push({i,end:1});
+    if(Math.abs(s.x2-x)<EPS&&Math.abs(s.y2-y)<EPS)out.push({i,end:2});
+  });
+  return out;
+};
+/* Dragging one end of a wire can leave the segment diagonal, which the rest of
+   the sheet assumes never happens — onSeg and T-junction detection are H/V only.
+   Break any diagonal back into an L. */
+function elbowize(){
+  const out=[];
+  segs.forEach(s=>{
+    const dx=Math.abs(s.x2-s.x1), dy=Math.abs(s.y2-s.y1);
+    if(dx<EPS&&dy<EPS)return;                       // drop zero-length
+    if(dx<EPS||dy<EPS){out.push(s);return}
+    out.push({x1:s.x1,y1:s.y1,x2:s.x2,y2:s.y1},
+             {x1:s.x2,y1:s.y1,x2:s.x2,y2:s.y2});
+  });
+  segs=out;
+}
 function pushPts(pts){
   for(let i=0;i<pts.length-1;i++){
     const [x1,y1]=pts[i],[x2,y2]=pts[i+1];
@@ -1108,9 +1209,13 @@ function pushPts(pts){
   }
 }
 function endDraw(keep){
-  const drew=draw&&keep&&draw.pts.length>1;
-  if(drew) pushPts(draw.pts);
-  draw=null; if(drew)commit(); render();
+  /* Finishing on the point you started from draws nothing; don't spend a history
+     entry on it. pushPts already drops zero-length legs, so just watch the count. */
+  const before=segs.length;
+  if(draw&&keep&&draw.pts.length>1) pushPts(draw.pts);
+  draw=null;
+  if(segs.length>before)commit();
+  render();
 }
 
 /* Dragging a device carries the wire ends that land on its pins. Mid-drag a
@@ -1356,9 +1461,9 @@ document.getElementById('left').onclick=e=>{
   const it=e.target.closest('[data-add]');if(!it)return;
   document.querySelectorAll('.item.on').forEach(x=>x.classList.remove('on'));
   it.classList.add('on');
-  if(it.dataset.add==='text'){
+  if(it.dataset.add==='text'||it.dataset.add==='netlabel'){
     document.querySelectorAll('.item.on').forEach(x=>x.classList.remove('on'));
-    openTextDialog(null); return;
+    (it.dataset.add==='text'?openTextDialog:openLabelDialog)(null); return;
   }
   placeKey=it.dataset.add; placeRot=0; placeMir=0; placeProps=null;
   mode='select'; draw=null;
@@ -1378,7 +1483,8 @@ cv.addEventListener('mousedown',e=>{
   if(placeKey){
     if(!isTB(placeKey)&&comps.some(c=>c.key===placeKey)){
       alert('This device exists once on the die and is already placed.');return}
-    comps.push({id:uid++,key:placeKey,x:sn(w.x),y:sn(w.y),r:placeRot,m:placeMir,
+    const at=placeKey==='netlabel'?snapTarget(w):{x:sn(w.x),y:sn(w.y)};
+    comps.push({id:uid++,key:placeKey,x:at.x,y:at.y,r:placeRot,m:placeMir,
                 ...(placeProps?{props:{...placeProps}}:{})});
     if(placeKey==='text'){placeKey=null;placeProps=null;placeRot=0;placeMir=0}
     else if(!isTB(placeKey)){placeKey=null;placeRot=0;placeMir=0;
@@ -1412,28 +1518,39 @@ cv.addEventListener('mousedown',e=>{
     render();return;
   }
   if(mode==='wire'){
+    /* Two clicks and the wire is down: one to start, one to finish, wherever the
+       cursor happens to be — a pin, another wire, or bare grid. Nothing has to be
+       connected to anything for the wire to stay. */
     const t=snapTarget(w);
     if(!draw){draw={pts:[[t.x,t.y]],elbowH:true};cur={x:t.x,y:t.y};render();return}
-    const pts=elbow(draw.pts[draw.pts.length-1],[t.x,t.y],draw.elbowH);
-    draw.pts=draw.pts.concat(pts);
-    if(t.kind==='pin'||t.kind==='wire'){endDraw(true);return}
-    render();return;
+    draw.pts=draw.pts.concat(elbow(draw.pts[draw.pts.length-1],[t.x,t.y],draw.elbowH));
+    endDraw(true);return;
   }
 
   const addTo=e.shiftKey||e.metaKey||e.ctrlKey;
   const nl=e.target.closest('[data-net]');
   if(nl){hiNet=hiNet===nl.dataset.net?null:nl.dataset.net;render();return}
+  /* a wire end under the cursor is a re-route handle, ahead of anything else */
+  const ge=addTo?null:endAt(w);
+  if(ge){
+    selIds.clear(); selSegs.clear();
+    drag={kind:'end',moved:false,px:ge.x,py:ge.y,pts:endsAt(ge.x,ge.y)};
+    render();return;
+  }
   const h=hitTest(w);
   if(h&&h.kind==='seg'){const i=h.i;
-    if(!addTo){selIds.clear();selSegs.clear()}
-    selSegs.has(i)?selSegs.delete(i):selSegs.add(i);
+    if(addTo){ selSegs.has(i)?selSegs.delete(i):selSegs.add(i); render(); return }
+    /* grab the wire itself: select it if it wasn't, then let it be dragged */
+    if(!selSegs.has(i)){selIds.clear(); selSegs=new Set([i])}
+    drag={kind:'seg',ox:w.x,oy:w.y,moved:false,dx:0,dy:0,start:[],eps:[],
+          segStart:[...selSegs].map(j=>({i:j,s:{...segs[j]}}))};
     render();return}
   if(h&&h.kind==='dev'){
     const id=h.id;
     if(addTo){ selIds.has(id)?selIds.delete(id):selIds.add(id); render(); return }
     if(!selIds.has(id)){selIds=new Set([id]);selSegs.clear()}
     const eps=grabEnds(selIds);
-    drag={ox:w.x,oy:w.y,moved:false,dx:0,dy:0,sig:connSig(),
+    drag={kind:'dev',ox:w.x,oy:w.y,moved:false,dx:0,dy:0,sig:connSig(),
            segs0:segs.map(x=>({...x})),
            start:comps.filter(c=>selIds.has(c.id)).map(c=>({c,x:c.x,y:c.y})),
            eps, taps:grabTaps(eps),
@@ -1456,6 +1573,18 @@ window.addEventListener('mousemove',e=>{
   if(band){band.x1=w.x;band.y1=w.y;
     if(band.del){const nh=hitTest(w);if(!sameHit(nh,hover))hover=nh}
     render();return}
+  if(drag&&drag.kind==='end'){
+    /* the end follows the same snapping a freshly drawn wire gets, so it latches
+       onto pins and other wires as readily as it lands on bare grid */
+    const t=snapTarget(w);
+    if(t.x!==drag.px||t.y!==drag.py)drag.moved=true;
+    drag.px=t.x; drag.py=t.y;
+    drag.pts.forEach(o=>{const s=segs[o.i];
+      if(o.end===1){s.x1=t.x;s.y1=t.y} else {s.x2=t.x;s.y2=t.y}});
+    cur={x:t.x,y:t.y};
+    hoverPin=t.pin?{c:t.pin.c,i:t.pin.i}:null;
+    render();return;
+  }
   if(drag){
     const dx=sn(w.x-drag.ox), dy=sn(w.y-drag.oy);
     if(dx||dy)drag.moved=true;
@@ -1468,7 +1597,8 @@ window.addEventListener('mousemove',e=>{
     render();return;
   }
   if(placeKey){                                  // ghost follows the cursor
-    const nx=sn(w.x), ny=sn(w.y);
+    const gt=placeKey==='netlabel'?snapTarget(w):{x:sn(w.x),y:sn(w.y)};
+    const nx=gt.x, ny=gt.y;
     if(nx!==cur.x||ny!==cur.y){cur={x:nx,y:ny};render()}
     return;
   }
@@ -1531,7 +1661,15 @@ window.addEventListener('mouseup',()=>{
     }
     band=null;render();
   }
-  if(drag){
+  if(drag&&(drag.kind==='end'||drag.kind==='seg')){
+    const d=drag; drag=null; hoverPin=null;
+    /* No connectivity-preserving dance here, unlike a device drag: re-routing a
+       wire by hand is the user SAYING which node it should land on, so whatever
+       they dropped it on is the answer. */
+    if(d.moved){ if(d.kind==='end'){elbowize();mergeCollinear()} commit() }
+    render();
+  }
+  else if(drag){
     const d=drag; drag=null;
     if(d.moved){
       const movedMap=new Map(); d.eps.forEach(o=>movedMap.set(o.s,o.end));
@@ -1666,6 +1804,7 @@ window.addEventListener('keydown',e=>{
   }
   if(k==='m'&&!draw){ if(placeKey){placeMir=placeMir?0:1;render()} else flip(); return }
   if(k==='t'&&!draw&&!placeKey){ openTextDialog(null); return }
+  if(k==='l'&&!draw&&!placeKey){ openLabelDialog(null); return }
   if(k==='q'){ openPropsForSelection(); return }
   if(k==='z')setMode('zoom');
   if(k==='w')setMode('wire');
@@ -3162,6 +3301,7 @@ function devInfoHTML(key){
 let pTarget=null;
 function openProps(c){
   if(c.key==='text'){openTextDialog(c);return}
+  if(c.key==='netlabel'){openLabelDialog(c);return}
   pTarget=PDEF[c.key]?c:null;
   document.getElementById('ptitle').textContent=BY[c.key].n+(PDEF[c.key]?' \u2014 properties':' \u2014 device info');
   const editable=PDEF[c.key]?Object.keys(PDEF[c.key]).map(k=>
@@ -3210,6 +3350,42 @@ document.getElementById('tOk').onclick=()=>{
   mode='select'; draw=null; applyCursor(); render();
 };
 
+/* ---------- net label dialog ---------- */
+let lEdit=null;                       // label being renamed, or null when placing new
+function openLabelDialog(c){
+  lEdit=c||null;
+  document.getElementById('ltitle').textContent=c?'Rename net label':'Net label';
+  document.getElementById('lName').value=c?LBLNM(c):'';
+  document.getElementById('lerr').textContent='';
+  document.getElementById('lmodal').classList.add('show');
+  setTimeout(()=>{const i=document.getElementById('lName');i.focus();i.select()},0);
+}
+/* The same rules the Nets panel enforces on a rename, for the same reason: these
+   names go straight out to cir_to_connections as node names. */
+function labelNameError(nm,self){
+  if(!nm)return 'A label needs a name.';
+  if(!/^[A-Za-z_][A-Za-z0-9_]*$/.test(nm))
+    return 'Use a letter or _ first, then letters, digits or _.';
+  if(/^BUS/i.test(nm))return '"BUS" is reserved by the MOSbius netlist reader.';
+  if(/^net\d+$/.test(nm))return 'netN names are handed out automatically — pick another.';
+  if(Object.values(alias).includes(nm))
+    return 'A net in the Nets panel is already renamed to that.';
+  return '';
+}
+document.getElementById('lX').onclick=()=>{
+  document.getElementById('lmodal').classList.remove('show');lEdit=null};
+document.getElementById('lOk').onclick=()=>{
+  const nm=document.getElementById('lName').value.trim();
+  const err=labelNameError(nm,lEdit);
+  if(err){ const f=document.getElementById('lerr'); f.textContent=err;
+           const i=document.getElementById('lName'); i.focus(); i.select(); return }
+  document.getElementById('lmodal').classList.remove('show');
+  if(lEdit){ lEdit.props={name:nm}; lEdit=null; commit(); render(); return }
+  /* hand it to the placement ghost, so it can be dropped on a pin or a wire */
+  placeKey='netlabel'; placeProps={name:nm}; placeRot=0; placeMir=0;
+  mode='select'; draw=null; applyCursor(); render();
+};
+
 function openPropsForSelection(){
   if(selIds.size!==1){
     if(selIds.size)toast('select a single component to open its properties');
@@ -3250,6 +3426,7 @@ document.getElementById('pOk').onclick=()=>{
 const MODALS=[
   {id:'pmodal', ok:'pOk', cancel:'pX'},     // properties / device info
   {id:'tmodal', ok:'tOk', cancel:'tX'},     // text annotation
+  {id:'lmodal', ok:'lOk', cancel:'lX'},     // net label
   {id:'modal',  ok:null,  cancel:'bClose'}, // connections.json export
 ];
 const openModal=()=>MODALS.find(m=>document.getElementById(m.id).classList.contains('show'));
