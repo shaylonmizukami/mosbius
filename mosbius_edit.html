@@ -35,6 +35,17 @@
   #right{border-left:1px solid var(--line);display:flex;flex-direction:column}
   .ph{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--dim);
       padding:12px 12px 5px;text-transform:uppercase}
+  .cat{border-bottom:1px solid var(--panel2)}
+  .cathead{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;
+      font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--dim);
+      padding:10px 12px 9px;text-transform:uppercase}
+  .cathead:hover{background:#1A212A;color:var(--text)}
+  .cathead .chev{font-size:8px;color:#4A5765;transition:transform .12s;flex:0 0 auto}
+  .cathead .cnt{margin-left:auto;font-family:var(--mono);font-size:9px;color:#3D4956}
+  .cat.open>.cathead{color:var(--accent)}
+  .cat.open>.cathead .chev{transform:rotate(90deg);color:var(--accent)}
+  .catbody{display:none}
+  .cat.open>.catbody{display:block}
   .item{display:flex;justify-content:space-between;gap:8px;align-items:center;
         padding:5px 12px;cursor:pointer;border-left:2px solid transparent;font-size:12.5px}
   .item:hover{background:#1A212A}
@@ -462,7 +473,18 @@ T('text','Text','Annotation','',[],c=>drawText(c),c=>bbText(c)),
    every label carrying the same name is one and the same net. ---- */
 T('netlabel','Net label','Annotation','',[['x',null,0,0,'r']],
   c=>drawLabel(c),c=>bbLabel(c)),
+
+/* ---- bus label: tags a node with a bus number. Its pin has no pad of its own;
+   it just anchors the node and declares its bus, so any nodes carrying the same
+   bus are connected through the crossbar with no wire between them. ---- */
+T('buslabel','Bus label','Annotation','',[['tap',null,0,40,'b']],
+  c=>busLabelDraw(c), [-38,-30,38,52]),
 ];
+function busLabelDraw(c){
+  const b=(c&&c.props&&c.props.bus)||'?';
+  return P('M-32,-22 H32 V16 H-32 Z',{f:'#101820'})
+    +TX(0,4,'BUS'+b,{z:11,c:'var(--wire)'})+P('M0,16 V40');
+}
 
 /* ---------- text annotation ---------- */
 const TXT=c=>({ s:(c&&c.props&&c.props.text)||'Text',
@@ -982,7 +1004,7 @@ function render(){
   g+=`</g>`;
   cv.innerHTML=g;
 
-  meter(N); netPanel(N); drc(N);
+  meter(N); netPanel(N); drc(N); refreshPalette();
   document.getElementById('sMode').textContent=placeKey?'place':(draw?'routing':mode);
   document.getElementById('sComp').textContent=comps.length;
   document.getElementById('sWire').textContent=segs.length;
@@ -1001,13 +1023,41 @@ function render(){
       +'<b>q</b> properties \u00b7 <b>l</b> net label \u00b7 <b>t</b> text \u00b7 <b>z</b> zoom \u00b7 <b>ctrl+z</b> undo';
 }
 
+/* Hide single-instance on-chip devices once placed. Each exists exactly once on
+   the die, so once it is on the sheet its palette entry disappears (and returns
+   if the device is deleted). Testbench and annotation parts are reusable, so they
+   are never hidden. Runs on every render, which covers place / delete / undo. */
+function refreshPalette(){
+  const placed=new Set(comps.filter(c=>!isTB(c.key)).map(c=>c.key));
+  document.querySelectorAll('#left .cat').forEach(cat=>{
+    let avail=0;
+    cat.querySelectorAll('.item[data-add]').forEach(it=>{
+      const hide=!isTB(it.dataset.add)&&placed.has(it.dataset.add);
+      it.style.display=hide?'none':''; if(!hide)avail++;
+    });
+    const cnt=cat.querySelector('.cnt'); if(cnt)cnt.textContent=avail;
+  });
+}
+
+/* A net's bus: taken from a bus label placed on the net if there is one, else from
+   the Nets-panel dropdown. Any two nets that resolve to the SAME bus are one
+   electrical node — the on-chip crossbar ties every pin on a bus together, so they
+   are connected with or without a wire between them. Returns 1..10 or null. */
+function netBus(n){
+  const lbl=n.mem&&n.mem.find(m=>m.c.key==='buslabel');
+  if(lbl){const b=+((lbl.c.props&&lbl.c.props.bus)||0); if(b>=1&&b<=10)return b;}
+  const b=busOf[n.id]; return (b>=1&&b<=10)?b:null;
+}
 function meter(N){
   const need=N.filter(n=>n.onchip.length), c=document.getElementById('mCnt');
-  c.textContent=need.length+'/10'; c.className='cnt'+(need.length>10?' over':'');
-  const taken={}; need.forEach(n=>{if(busOf[n.id])taken[busOf[n.id]]=n});
+  /* count distinct buses in use, not nets — several nets can share one bus now */
+  const taken={}; need.forEach(n=>{const b=netBus(n); if(b)(taken[b]=taken[b]||[]).push(n);});
+  const used=Object.keys(taken).length;
+  c.textContent=used+'/10'; c.className='cnt'+(used>10?' over':'');
   let h='';
-  for(let b=1;b<=10;b++){const n=taken[b],p=n&&n.onchip.some(m=>m.pcb===1||m.pcb===18);
-    h+=`<div class="slot ${n?(p?'pwr':'used'):''}" title="${n?n.name:'BUS'+b+' free'}">${b}</div>`}
+  for(let b=1;b<=10;b++){const g=taken[b],p=g&&g.some(n=>n.onchip.some(m=>m.pcb===1||m.pcb===18));
+    const tip=g?g.map(n=>n.name).join(' + '):'BUS'+b+' free';
+    h+=`<div class="slot ${g?(p?'pwr':'used'):''}" title="${tip}">${b}</div>`}
   document.getElementById('mSlots').innerHTML=h;
 }
 function netPanel(N){
@@ -1016,16 +1066,22 @@ function netPanel(N){
     No nets yet. Place devices, press <b>w</b> and route between pins \u2014 or press
     <b>l</b> and drop the same net label on two pins.</div>`;return}
   e.innerHTML=N.map(n=>{
+    const lbl=n.mem.find(m=>m.c.key==='buslabel');
     const b=busOf[n.id]||'';
     const mem=n.mem.map(m=>`${BY[m.c.key].tag||BY[m.c.key].n}.${m.nm}${m.pcb!==null?
       `<span style="color:#3D4956">/</span>${m.pcb}`:''}`).join('   ');
+    /* a net carrying a bus label takes its bus from the label (shown fixed here);
+       other on-chip nets keep the editable dropdown */
+    const busCtl = lbl
+      ? `<span title="set by the bus label \u2014 double-click the label to change" style="font-family:var(--mono);font-size:10.5px;color:var(--wire)">BUS${(lbl.c.props&&lbl.c.props.bus)||'?'}</span>`
+      : (n.onchip.length?`<select class="${b?'':'unset'}" data-bus="${n.id}"><option value="">\u2014</option>
+        ${[1,2,3,4,5,6,7,8,9,10].map(x=>`<option value="${x}"${x==b?' selected':''}>BUS${x}</option>`).join('')}
+      </select>`:'');
     return `<div class="net ${hiNet===n.id?'hi':''}" data-net="${n.id}">
       <div class="r1"><span class="nm ${n.onchip.length?'':'off'}" data-ren="${n.id}"
         title="double-click to rename">${n.name}${n.onchip.length?'':' (off-chip)'}</span>
       ${n.clash?`<span style="color:var(--bad);font-size:10px" title="${esc(n.labels.join(' / '))} name one node">\u26a0 ${esc(n.labels.length)} names</span>`:''}
-      ${n.onchip.length?`<select class="${b?'':'unset'}" data-bus="${n.id}"><option value="">\u2014</option>
-        ${[1,2,3,4,5,6,7,8,9,10].map(x=>`<option value="${x}"${x==b?' selected':''}>BUS${x}</option>`).join('')}
-      </select>`:''}</div><div class="mem">${mem}</div></div>`}).join('');
+      ${busCtl}</div><div class="mem">${mem}</div></div>`}).join('');
 }
 
 /* ==========================================================================
@@ -1034,10 +1090,14 @@ function netPanel(N){
    ========================================================================== */
 function problems(N){
   const m=[], need=N.filter(n=>n.onchip.length);
-  if(need.length>10)m.push(['e',`${need.length} on-chip nets, only 10 buses.`]);
+  /* the limit is 10 physical buses; nets may SHARE a bus now, so count distinct
+     buses in use rather than nets */
+  const busesUsed=new Set(); need.forEach(n=>{const b=netBus(n); if(b)busesUsed.add(b);});
+  if(busesUsed.size>10)m.push(['e',`${busesUsed.size} buses in use, only 10 exist.`]);
 
   const vdd=need.find(n=>n.onchip.some(x=>x.pcb===1)), vss=need.find(n=>n.onchip.some(x=>x.pcb===18));
-  if(vdd&&vss&&busOf[vdd.id]&&busOf[vdd.id]===busOf[vss.id])
+  const bv=vdd&&netBus(vdd), bs=vss&&netBus(vss);
+  if(bv&&bs&&bv===bs)
     m.push(['e',`${vdd.name}: chip_vdd and chip_vss on one bus \u2014 shorts the supply.`]);
 
   /* Labels connect by name, so a second name on a node that already has one is a
@@ -1046,16 +1106,16 @@ function problems(N){
     m.push(['e',`net labels ${n.labels.join(' and ')} name the same node \u2014 `+
                 `they are shorted together.`]));
 
-  const seen={};
-  need.forEach(n=>{const b=busOf[n.id];if(!b)return;
-    if(seen[b])m.push(['e',`BUS${b} claimed by both ${seen[b]} and ${n.name}.`]);seen[b]=n.name});
+  /* Two nets on the same bus is now INTENTIONAL — it is how you connect nodes with
+     no wire — so it is no longer an error. A real short is still caught below: one
+     physical pad landing on two DIFFERENT buses. */
 
   /* A PCB pin is one physical pad. Blocks legitimately share pads (47 substrate,
      5 nwell, 19 nMOS bias, 68 pMOS bias) \u2014 placing both blocks is fine. But if
      the shared pad ends up on two DIFFERENT buses, the exported bitstream closes
      two switches on it and shorts those buses together. Silent on real hardware. */
   const busOfPin={};
-  need.forEach(n=>{const b=busOf[n.id];if(!b)return;
+  need.forEach(n=>{const b=netBus(n);if(!b)return;
     n.onchip.forEach(mm=>{
       const prev=busOfPin[mm.pcb];
       if(prev&&prev.b!==b)
@@ -1073,7 +1133,7 @@ function problems(N){
     else netOfPin[mm.pcb]=n.name;
   }));
 
-  const u=need.filter(n=>!busOf[n.id]);
+  const u=need.filter(n=>!netBus(n));
   if(u.length)m.push(['w','Unassigned: '+u.map(n=>n.name).join(', ')]);
   const lone=comps.filter(c=>BY[c.key].pins.length&&
     !BY[c.key].pins.some((_,i)=>N.some(n=>n.keys.includes(pinKey(c,i)))));
@@ -1396,10 +1456,16 @@ function reportRewire(before){
    ========================================================================== */
 (function(){
   const gs=[...new Set(LIB.map(c=>c.g))];
-  document.getElementById('left').innerHTML=gs.map(g=>`<div class="ph">${g}</div>`+
-    LIB.filter(c=>c.g===g).map(c=>`<div class="item" data-add="${c.k}">
-      <span>${c.n}</span><span class="mult">${c.pins.filter(p=>p.pcb!==null).length||'tb'}</span></div>`).join('')
-  ).join('');
+  document.getElementById('left').innerHTML=gs.map(g=>{
+    const inGroup=LIB.filter(c=>c.g===g);
+    const items=inGroup.map(c=>`<div class="item" data-add="${c.k}">
+      <span>${c.n}</span><span class="mult">${c.pins.filter(p=>p.pcb!==null).length||'tb'}</span></div>`).join('');
+    /* Each category collapses, and all start collapsed, so a first-time user sees
+       a short list of headers rather than the whole device inventory at once. */
+    return `<div class="cat" data-cat="${g}">
+      <div class="cathead"><span class="chev">▶</span><span>${g}</span><span class="cnt">${inGroup.length}</span></div>
+      <div class="catbody">${items}</div></div>`;
+  }).join('');
 })();
 
 /* ==========================================================================
@@ -1458,12 +1524,22 @@ document.getElementById('bSel').onclick=()=>setMode('select');
 document.getElementById('bWire').onclick=()=>setMode('wire');
 document.getElementById('bZoom').onclick=()=>setMode('zoom');
 document.getElementById('left').onclick=e=>{
+  /* clicking a category header expands or collapses that section */
+  const head=e.target.closest('.cathead');
+  if(head){head.parentElement.classList.toggle('open');return}
   const it=e.target.closest('[data-add]');if(!it)return;
   document.querySelectorAll('.item.on').forEach(x=>x.classList.remove('on'));
   it.classList.add('on');
   if(it.dataset.add==='text'||it.dataset.add==='netlabel'){
     document.querySelectorAll('.item.on').forEach(x=>x.classList.remove('on'));
     (it.dataset.add==='text'?openTextDialog:openLabelDialog)(null); return;
+  }
+  if(it.dataset.add==='buslabel'){
+    const b=prompt('Bus number for this label (1\u201310):','1');
+    document.querySelectorAll('.item.on').forEach(x=>x.classList.remove('on'));
+    if(b===null){applyCursor();render();return}
+    placeKey='buslabel'; placeProps={bus:Math.max(1,Math.min(10,parseInt(b,10)||1))};
+    placeRot=0; placeMir=0; mode='select'; draw=null; applyCursor(); render(); return;
   }
   placeKey=it.dataset.add; placeRot=0; placeMir=0; placeProps=null;
   mode='select'; draw=null;
@@ -1523,6 +1599,9 @@ cv.addEventListener('mousedown',e=>{
        connected to anything for the wire to stay. */
     const t=snapTarget(w);
     if(!draw){draw={pts:[[t.x,t.y]],elbowH:true};cur={x:t.x,y:t.y};render();return}
+    /* the second click finishes the wire wherever it lands — a floating end (only
+       one side on a pin, or neither) is fine, which is what stubs and bus taps need.
+       For a path with several corners, draw a few wires; they join where they meet. */
     draw.pts=draw.pts.concat(elbow(draw.pts[draw.pts.length-1],[t.x,t.y],draw.elbowH));
     endDraw(true);return;
   }
@@ -1830,10 +1909,17 @@ function fit(){
 document.getElementById('bFit').onclick=fit;
 
 document.getElementById('bAuto').onclick=()=>{
-  const N=nets().filter(n=>n.onchip.length);
-  if(N.length>10){alert(`${N.length} on-chip nets, only 10 buses available.`);return}
+  const all=nets().filter(n=>n.onchip.length);
+  const hasLabel=n=>n.mem.some(m=>m.c.key==='buslabel');
+  const labeled=all.filter(hasLabel), free=all.filter(n=>!hasLabel(n));
+  /* buses already claimed by bus labels are off-limits to the auto-assigner */
+  const claimed=new Set(labeled.map(n=>netBus(n)).filter(Boolean));
+  const avail=[1,2,3,4,5,6,7,8,9,10].filter(b=>!claimed.has(b));
+  if(free.length>avail.length){
+    alert(`${free.length} nets to assign but only ${avail.length} free buses`+
+          (claimed.size?` (${claimed.size} already taken by bus labels).`:'.'));return}
   busOf={}; const pw=n=>n.onchip.some(m=>m.pcb===1||m.pcb===18);
-  let b=1;[...N.filter(n=>!pw(n)),...N.filter(pw)].forEach(n=>busOf[n.id]=b++);
+  let i=0;[...free.filter(n=>!pw(n)),...free.filter(pw)].forEach(n=>busOf[n.id]=avail[i++]);
   commit();render();
 };
 document.getElementById('bClr').onclick=()=>{
@@ -1857,13 +1943,14 @@ document.getElementById('bExp').onclick=()=>{
       +'\n//\n// Fix these in the Nets panel, then export again.';
     document.getElementById('modal').classList.add('show');return;
   }
-  /* union pins per bus — two nets on one bus is an error above, but merging
-     rather than overwriting means a bug here can never silently drop a pin */
+  /* Union pins per bus. Several nets legitimately share one bus now (that is how
+     a bus label connects nodes with no wire), so the union is the point: every pin
+     on the bus, from every net that resolves to it, closes a switch on that bus. */
   const o={};
-  N.forEach(n=>{const b=busOf[n.id];if(!b)return;
+  N.forEach(n=>{const b=netBus(n);if(!b)return;
     (o[b]=o[b]||new Set()); n.onchip.forEach(m=>o[b].add(m.pcb))});
   const ks=Object.keys(o).map(Number).sort((x,y)=>x-y);
-  const sk=N.filter(n=>!busOf[n.id]);
+  const sk=N.filter(n=>!netBus(n));
   out.textContent=
     (sk.length?`// omitted, no bus assigned: ${sk.map(n=>n.name).join(', ')}\n`:'')+
     (ks.length?`{\n${ks.map(k=>`  "${k}": [${[...o[k]].sort((x,y)=>x-y).join(', ')}]`).join(',\n')}\n}`:'{ }');
@@ -2241,13 +2328,19 @@ function idrain(t,vg,vd,vs,WoL){
 /* ---------- build a solvable circuit from the schematic ---------- */
 function buildCircuit(){
   const N=nets(), netOf={};
-  N.forEach(n=>n.mem.forEach(m=>netOf[m.key]=n.name));
+  /* Same-bus nets are one electrical node: the crossbar ties every pin on a bus
+     together, so nets sharing a bus (or a bus label) collapse to one canonical
+     node name here even when no wire runs between them. */
+  const busCanon={};
+  N.forEach(n=>{const b=netBus(n); if(b!=null&&busCanon[b]===undefined)busCanon[b]=n.name;});
+  const canon=n=>{const b=netBus(n); return (b!=null&&busCanon[b]!==undefined)?busCanon[b]:n.name;};
+  N.forEach(n=>n.mem.forEach(m=>netOf[m.key]=canon(n)));
   const pinNet=(c,nm)=>{
     const i=BY[c.key].pins.findIndex(p=>p.nm===nm);
     return i<0?null:(netOf[pinKey(c,i)]||null);
   };
   const nodes=new Set(['#GND','#VDD']);
-  N.forEach(n=>nodes.add(n.name));
+  N.forEach(n=>nodes.add(canon(n)));
   const fixed={'#GND':0,'#VDD':MP.VDD};
   const srcs=[], devs=[], caps=[], ress=[];
   const warn=[];
@@ -2739,6 +2832,7 @@ function measure(T,Yin,Yout){
    ========================================================================== */
 const TRC=['#4FD0E3','#E9C84A','#7FD68A','#E08A6A','#B79BE0','#6FA8DC','#D98BB0','#8FD3C7'];
 let anaType='tran';
+let simAdv=false;                   // DC sweep + AC/Bode stay hidden until "Adv" is on
 let simCfg={tstop:'60n',hmax:'2p',icNode:'',icV:'0',
             dc:{srcId:null,from:'0',to:'2.5',points:'101',
                 stepOn:false,stepSrc:null,stepFrom:'0.6',stepTo:'1.8',stepPoints:'4'},
@@ -2771,11 +2865,20 @@ function simSetup(){
   if(simCfg.dc.srcId===null&&srcs.length)simCfg.dc.srcId=srcs[0].id;
   if(simCfg.ac.srcId===null){const v=srcs.find(s=>s.kind==='v');if(v)simCfg.ac.srcId=v.id}
 
+  /* Basic analyses are always visible; the advanced two (DC sweep, AC / Bode)
+     appear only when "Adv" is on, so a beginner isn't faced with all four. */
+  const basicTypes=[['op','Op'],['tran','Tran']];
+  const advTypes=[['dc','DC'],['ac','AC']];
+  const shownTypes=simAdv?basicTypes.concat(advTypes):basicTypes;
   document.getElementById('anaBox').innerHTML=
-    `<div style="padding:2px 12px 8px"><span class="seg" id="anaType">
-      ${[['op','Op'],['dc','DC'],['ac','AC'],['tran','Tran']].map(([k,l])=>
+    `<div style="padding:2px 12px 8px;display:flex;align-items:center;gap:6px">
+      <span class="seg" id="anaType" style="flex:1">
+      ${shownTypes.map(([k,l])=>
         `<button type="button" data-an="${k}"${anaType===k?' class="on"':''}>${l}</button>`).join('')}
-     </span></div>`+anaFields(srcs);
+      </span>
+      <button type="button" id="advToggle" class="${simAdv?'on':''}" style="flex:0 0 auto;padding:6px 9px"
+        title="Show the advanced analyses: DC sweep and AC / Bode">Adv</button>
+     </div>`+anaFields(srcs);
 
   /* stimulus: only the sources the analysis does not itself drive */
   const driven = anaType==='dc' ? [simCfg.dc.srcId, simCfg.dc.stepOn?simCfg.dc.stepSrc:null]
@@ -2857,6 +2960,13 @@ function anaFields(srcs){
 document.getElementById('simsetup').addEventListener('click',e=>{
   const t=e.target.closest('[data-an]');
   if(t){anaType=t.dataset.an;plView=null;simSetup();plot();measPanel();return}
+  if(e.target.closest('#advToggle')){
+    simAdv=!simAdv;
+    /* turning Adv off while a now-hidden advanced analysis is selected would
+       strand the user on it, so drop back to Transient in that case */
+    if(!simAdv&&(anaType==='dc'||anaType==='ac')){anaType='tran';plView=null}
+    simSetup();plot();measPanel();return;
+  }
   if(e.target.closest('#f_stepon')){
     const d=simCfg.dc; d.stepOn=!d.stepOn;
     if(d.stepOn&&d.stepSrc===null){const s=SRCLIST().find(x=>x.id!==d.srcId);d.stepSrc=s?s.id:d.srcId}
@@ -3302,6 +3412,12 @@ let pTarget=null;
 function openProps(c){
   if(c.key==='text'){openTextDialog(c);return}
   if(c.key==='netlabel'){openLabelDialog(c);return}
+  if(c.key==='buslabel'){
+    const b=prompt('Bus number (1\u201310):',(c.props&&c.props.bus)||'1');
+    if(b===null)return;
+    c.props={...(c.props||{}),bus:Math.max(1,Math.min(10,parseInt(b,10)||1))};
+    commit();render();return;
+  }
   pTarget=PDEF[c.key]?c:null;
   document.getElementById('ptitle').textContent=BY[c.key].n+(PDEF[c.key]?' \u2014 properties':' \u2014 device info');
   const editable=PDEF[c.key]?Object.keys(PDEF[c.key]).map(k=>
