@@ -13,7 +13,7 @@
   html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
     font-family:var(--sans);font-size:13px;overflow:hidden;user-select:none}
   #app{display:grid;grid-template-columns:206px 1fr 274px;
-       grid-template-rows:44px 1fr 26px;height:100vh}
+       grid-template-rows:44px minmax(0,1fr) auto 26px;height:100vh}
   #bar{grid-column:1/4;display:flex;align-items:center;gap:6px;padding:0 12px;
        background:var(--panel);border-bottom:1px solid var(--line);
        overflow-x:auto;scrollbar-width:thin}
@@ -70,6 +70,26 @@
   .slot.used{background:#123640;border-color:var(--accent);color:#DCF7FB}
   .slot.pwr{background:#2F2C18;border-color:#867628;color:#EFE0A0}
   #nets{flex:1;overflow-y:auto}
+  #opbox{max-height:48%;overflow-y:auto;border-bottom:1px solid var(--line);display:none}
+  #opbox.show{display:block}
+  #opbox .ophead{display:flex;align-items:center;justify-content:space-between;padding:12px 12px 5px}
+  #opbox .ophead .ph{padding:0}
+  #opbox .ophead button{padding:1px 7px;font-size:11px}
+  #opbox details{border-top:1px solid var(--panel2)}
+  #opbox summary{display:flex;align-items:center;gap:7px;padding:5px 12px;cursor:pointer;
+    font-family:var(--mono);font-size:11px;list-style:none;user-select:none}
+  #opbox summary::-webkit-details-marker{display:none}
+  #opbox summary:hover{background:#1A212A}
+  #opbox summary .arr{color:var(--dim);width:8px}
+  #opbox details[open] summary .arr{transform:rotate(90deg)}
+  #opbox summary .nm{color:var(--ink);flex:1}
+  #opbox summary .id{color:var(--dim)}
+  #opbox .dot{width:8px;height:8px;border-radius:50%;flex:0 0 8px}
+  #opbox .tr{padding:2px 12px 7px 27px}
+  #opbox .trn{font-family:var(--mono);font-size:10px;color:var(--dim);margin:4px 0 2px}
+  #opbox .kv{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:1px 8px;
+    font-family:var(--mono);font-size:10.5px}
+  #opbox .kv span:nth-child(odd){color:var(--dim)}
   .net{padding:8px 12px;border-bottom:1px solid var(--panel2);cursor:pointer}
   .net:hover{background:#1A212A}
   .net.hi{background:#1C242D;box-shadow:inset 2px 0 0 var(--accent)}
@@ -88,7 +108,7 @@
   .msg.e{color:#F0A79C} .msg.e::before{content:"\2716";color:var(--bad)}
   .msg.w{color:#E4CE93} .msg.w::before{content:"\26A0";color:#D6A653}
   .msg.o{color:#9FD8B8} .msg.o::before{content:"\2713";color:var(--good)}
-  #status{grid-column:1/4;background:var(--panel2);border-top:1px solid var(--line);
+  #status{grid-column:1/4;grid-row:4;background:var(--panel2);border-top:1px solid var(--line);
     display:flex;align-items:center;gap:15px;padding:0 12px;font-family:var(--mono);
     font-size:10.5px;color:var(--dim)}
   #status b{color:var(--accent);font-weight:400}
@@ -101,6 +121,7 @@
     font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.08em;color:var(--accent)}
   #out{flex:1;overflow:auto;margin:0;padding:14px 16px;font-family:var(--mono);font-size:11.5px;
     line-height:1.6;color:#CFE3D6;white-space:pre;background:var(--panel2);user-select:text}
+  #benchlist{margin:0;padding:10px 16px;font-family:var(--mono);font-size:10.5px;border-top:1px solid var(--line);white-space:pre-wrap}
   #picolog{display:none;margin:0;padding:10px 16px;font-family:var(--mono);font-size:10.5px;
     line-height:1.5;color:#9FB3C4;white-space:pre-wrap;background:#0A0E13;
     border-top:1px solid var(--line);max-height:190px;overflow:auto;user-select:text}
@@ -143,23 +164,50 @@
   .seg button:last-child{border-radius:0 4px 4px 0}
   .seg button+button{border-left:none}
 
-  #sim{position:fixed;inset:0;background:var(--bg);z-index:55;display:none;
-    grid-template-columns:264px 1fr;grid-template-rows:44px 1fr}
-  #sim.show{display:grid}
-  #simbar{grid-column:1/3;display:flex;align-items:center;gap:8px;padding:0 12px;
-    background:var(--panel);border-bottom:1px solid var(--line)}
-  #simstat{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
-  #simsetup{background:var(--panel);border-right:1px solid var(--line);overflow-y:auto}
-  #simplot{position:relative;overflow:hidden}
-  #pl{width:100%;height:100%;cursor:crosshair}
-  #plhint{position:absolute;left:14px;bottom:10px;font-family:var(--mono);font-size:10.5px;
-    color:var(--dim);pointer-events:none}
+  /* simulation pane: sits under the schematic, resizable, can expand or close */
+  #simpane{grid-column:1/4;grid-row:3;display:none;flex-direction:column;height:var(--sph,320px);
+    background:var(--panel2);border-top:1px solid var(--line);position:relative;min-height:0}
+  #simpane.open{display:flex}
+  #simpane.max{position:fixed;left:0;right:0;top:44px;bottom:26px;height:auto;z-index:45}
+  #sphandle{position:absolute;left:0;right:0;top:-4px;height:8px;cursor:ns-resize;z-index:2}
+  #simpane.max #sphandle{display:none}
+  #spbar{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line);
+    background:var(--panel);flex:0 0 auto}
+  #spbar .seg{flex:0 0 auto}
+  #spStat{font-family:var(--mono);font-size:10.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #spbody{flex:1;display:flex;min-height:0}
+  #spside{width:290px;flex:0 0 290px;overflow-y:auto;border-right:1px solid var(--line);background:var(--panel);padding-bottom:10px}
+  #spplot{flex:1;position:relative;min-width:0}
+  #pl{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}
+  #plmsg{position:absolute;inset:0;pointer-events:none;overflow:auto}
+  #plmsg .optab,#plmsg .plerr{pointer-events:auto}
+  .plempty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:12.5px}
+  .plerr{margin:14px;padding:10px 12px;border:1px solid #5A2B2B;background:#1A1012;color:#F0B2AE;
+    font-family:var(--mono);font-size:11px;line-height:1.6;user-select:text;white-space:pre-wrap}
+  .optab{padding:10px 16px;font-family:var(--mono);font-size:11px;columns:260px;column-gap:28px}
+  .optab>div{display:flex;justify-content:space-between;gap:10px;padding:2px 0;break-inside:avoid}
+  .optab span{color:var(--dim)} .optab b{color:var(--ink);font-weight:500}
+  .optab .oph{color:var(--accent);letter-spacing:.1em;text-transform:uppercase;font-size:9.5px;padding-top:8px}
+  .optab .wn{color:#D6A653}
+  #plread{position:absolute;right:18px;top:14px;background:rgba(15,20,26,.92);border:1px solid #2A3541;
+    border-radius:4px;padding:6px 9px;font-family:var(--mono);font-size:10.5px;line-height:1.55;pointer-events:none}
+  .pltk{font-family:var(--mono);font-size:9.5px;fill:#6B7A89}
+  #plkeys{position:absolute;right:16px;bottom:30px;font-family:var(--mono);font-size:9.5px;color:#3D4956;pointer-events:none}
+  .spnote{padding:4px 12px 6px;font-size:10.5px;color:var(--dim);line-height:1.55}
+  #spside select{flex:1;min-width:0;max-width:170px}
+  #spside .u{font-family:var(--mono);font-size:10px;color:var(--dim);width:18px}
+  .spmore summary{padding:4px 12px;font-size:11px;color:var(--dim);cursor:pointer}
+  .sig{display:flex;align-items:center;gap:7px;padding:3px 12px;cursor:pointer;font-family:var(--mono);font-size:11px}
+  .sig:hover{background:#1A212A} .sig input{margin:0}
+  .sig .nm{color:var(--text)} .sig.on .nm{color:var(--ink)}
+  .sig .ms{margin-left:auto;color:var(--dim);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
   .frow{display:flex;align-items:center;gap:8px;padding:3px 12px}
   .frow label{flex:1;font-size:11.5px;color:var(--text)}
   .frow input{width:82px;font-family:var(--mono);font-size:11px;background:#0E141A;color:var(--ink);
     border:1px solid var(--line);border-radius:3px;padding:3px 6px}
   .frow input:focus{outline:none;border-color:var(--accent)}
-  .frow.sw{cursor:pointer} .frow.sw:hover{background:#1A212A}
+  .frow.sw{cursor:pointer;font-size:11.5px} .frow.sw:hover{background:#1A212A}
+  .frow input[type=checkbox]{width:auto;margin:0}
   .chip{width:11px;height:11px;border-radius:2px;flex:0 0 11px}
   .mline{display:flex;justify-content:space-between;padding:3px 12px;font-family:var(--mono);
     font-size:11px}.mline span:first-child{color:var(--dim)}.mline span:last-child{color:var(--accent)}
@@ -190,7 +238,7 @@
     <input type="file" id="fOpen" accept=".json,.mosb,application/json" style="display:none">
     <div class="spacer"></div>
     <button id="bDemo">Ring oscillator</button>
-    <button id="bSim" class="go">Simulate ▶</button>
+    <button id="bSim" class="go" title="open / close the simulation pane">Simulate</button>
     <button id="bExp" class="go">Export connections.json</button>
   </div>
   <aside id="left"></aside>
@@ -200,8 +248,26 @@
       <div class="top"><span>BUS ALLOCATION</span><span class="cnt" id="mCnt">0/10</span></div>
       <div class="slots" id="mSlots"></div>
     </div>
+    <div id="opbox"></div>
     <div class="ph">Nets</div><div id="nets"></div><div id="drc"></div>
   </aside>
+  <div id="simpane">
+    <div id="sphandle" title="drag to resize"></div>
+    <div id="spbar">
+      <span class="seg" id="spAna"><button type="button" data-an="op">Op point</button><button type="button" data-an="dc">DC sweep</button><button type="button" data-an="ac">AC</button><button type="button" data-an="tran">Transient</button></span>
+      <button id="spRun" class="go" title="F5">Run ▶</button>
+      <span id="spStat"></span><span class="spacer"></span>
+      <button id="spProbe" title="click wires on the schematic to show them in the plot">Probe</button>
+      <button id="spNet" title="the ngspice netlist generated from your schematic">Netlist</button>
+      <button id="spMax" title="expand / restore">⤢</button><button id="spX" title="close (Simulate reopens it)">✕</button>
+    </div>
+    <div id="spbody">
+      <div id="spside"><div class="ph">Settings</div><div id="spSet"></div>
+        <div class="ph">Signals</div><div id="spSig"></div>
+        <div class="ph">Model</div><div id="spModel"></div></div>
+      <div id="spplot"><svg id="pl"></svg><div id="plmsg"></div><div id="plread" style="display:none"></div><div id="plkeys">f fit · m marker · d delta · q edit · del delete · drag markers along the curve, bubbles anywhere</div></div>
+    </div>
+  </div>
   <div id="status">
     <span>MODE <b id="sMode">select</b></span>
     <span>DEVICES <b id="sComp">0</b></span>
@@ -249,43 +315,8 @@
   <div id="cardfoot"><button id="lOk" class="go">OK</button><button id="lX">Cancel</button></div>
 </div></div>
 
-<div id="sim">
-  <div id="simbar">
-    <span class="brand">MAESTRO — transient</span>
-    <span id="simstat"></span><span class="spacer"></span>
-    <button id="simProbe">Probe nets</button>
-    <button id="simCheck">Check</button>
-    <button id="simRun" class="go">Run ▶</button><button id="simX">Close</button>
-  </div>
-  <div id="simsetup">
-    <div class="ph">Analysis</div><div id="anaBox"></div>
-    <div class="ph">Stimulus</div><div id="stimBox"></div>
-    <div class="ph">Signals</div><div id="probeBox"></div>
-    <div class="ph">Measurements</div><div id="measBox"></div>
-    <div class="ph">Model &amp; caveats</div>
-    <div style="padding:6px 12px 16px;font-size:10.5px;color:var(--dim);line-height:1.6">
-      The die is <b>65&nbsp;nm CMOS thick-oxide</b> devices at 2.5&nbsp;V. The TSMC&nbsp;0.25&nbsp;µm
-      card shipped with the LTspice library — and used here — is a stand-in Columbia reports
-      tracks measurement closely. Compact MOSFET model: EKV-style soft threshold (so
-      subthreshold slope and the gm/I<sub>D</sub> ceiling are right), velocity saturation,
-      channel-length modulation, built from
-      <span style="font-family:var(--mono)">vth0</span>,
-      <span style="font-family:var(--mono)">tox</span>,
-      <span style="font-family:var(--mono)">u0</span> and the real device geometry.
-      Transient uses trapezoidal integration with adaptive stepping.
-      <br><br>
-      <b style="color:#D6A653">Not modelled:</b> the 15&nbsp;Ω crossbar switches, the ESD series
-      resistors, and pad / bus capacitance — the last is not documented anywhere upstream.
-      Expect simulated switching to come out <i>much</i> faster than the bench: the reference
-      3-stage ring measures 14–18&nbsp;MHz on silicon and simulates here in the GHz, because
-      only intrinsic device capacitance is present. Add explicit load capacitors to close
-      the gap. Shapes, ratios and trends are trustworthy; absolute speed is not.
-    </div>
-  </div>
-  <div id="simplot"><svg id="pl"></svg><div id="plhint"></div></div>
-</div>
-
 <div id="modal"><div id="card"><h3>connections.json</h3><pre id="out"></pre>
+  <pre id="benchlist" style="display:none;color:var(--wire)"></pre>
   <pre id="picolog"></pre>
   <div id="cardfoot">
     <button id="bProg" class="go">Program Raspberry Pi Pico</button>
@@ -307,6 +338,19 @@
 
 const NS='http://www.w3.org/2000/svg';
 const ink='var(--ink)';
+/* current source arrow: centred, or moved left to make room for a waveform glyph */
+function ISRCARROW(c){
+  const x=((c&&c.props&&c.props.mode)||'dc')==='dc'?0:-7;
+  return P(`M${x},-12 V6`)+P(`M${x-4},0 L${x},8 L${x+4},0 Z`,{f:ink,s:null});
+}
+/* small waveform glyph for a source, from its mode */
+function SRCGLYPH(c,dy,dx=0){
+  const m=(c&&c.props&&c.props.mode)||'dc', o={w:1.4}, g=d=>`<g transform="translate(${dx},${dy})">${P(d,o)}</g>`;
+  if(m==='sin')  return g('M-9,0 a4.5,4.5 0 0,1 9,0 a4.5,4.5 0 0,0 9,0');
+  if(m==='pulse')return g('M-9,5 V-4 H-1 V5 H7 V-4');
+  if(m==='pwl')  return g('M-9,5 L-3,-5 L3,3 L9,-5');
+  return dx?'':P('M-4,11 h8',{s:ink,w:1.3});
+}
 const el=(t,a)=>{const n=document.createElementNS(NS,t);for(const k in a)n.setAttribute(k,a[k]);return n};
 
 /* ---------- svg primitives (string based) ---------- */
@@ -315,7 +359,11 @@ const P=(d,o={})=>`<path d="${d}" fill="${o.f||'none'}" stroke="${o.s===null?'no
    label text stays upright and readable on rotated / mirrored instances.
    translate(x,y)·inv(T) inside a group carrying T leaves the glyphs unrotated
    while still placing them at the transformed position. */
-let TXINV='';
+let TXINV='', TXVERT=false;
+/* TXV: text that lies along its symbol. It is centred on its anchor (so turning
+   the symbol never shifts it off-centre), runs top-to-bottom when the symbol is
+   turned sideways, and stays upright otherwise, never upside down. */
+const TXV=(x,y,t,o={})=>`<text x="0" y="0" transform="translate(${x},${y})${TXINV}${TXVERT?' rotate(90)':''}" font-family="${o.ff||'var(--mono)'}" font-size="${o.z||9}" fill="${o.c||'var(--dim)'}" text-anchor="middle" dominant-baseline="central" style="pointer-events:none">${t}</text>`;
 const TX=(x,y,t,o={})=>`<text x="0" y="0" transform="translate(${x},${y})${TXINV}" font-family="${o.ff||'var(--mono)'}" font-size="${o.z||9}" fill="${o.c||'var(--dim)'}" text-anchor="${o.a||'middle'}" style="pointer-events:none">${t}</text>`;
 /* user-supplied strings reach the sheet as raw SVG markup, so they get escaped */
 const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -427,25 +475,41 @@ T('ota_pmos','OTA pMOS','Amplifiers','OTA_P',
 
 /* ---- supply taps ---- */
 T('chip_vdd','Chip VDD','Supply taps','',[['chip_vdd',1,0,40,'b']],
-  ()=>P('M-46,-22 H46 V16 H-46 Z',{f:'#101820'})+TX(0,4,'chip_vdd',{z:11,c:'var(--accent)'})
+  ()=>P('M-46,-22 H46 V16 H-46 Z',{f:'#101820'})+TXV(0,-3,'chip_vdd',{z:11,c:'var(--accent)'})
      +P('M0,16 V40'),[-52,-30,52,52]),
 T('chip_vss','Chip VSS','Supply taps','',[['chip_vss',18,0,-40,'t']],
-  ()=>P('M-46,-16 H46 V22 H-46 Z',{f:'#101820'})+TX(0,10,'chip_vss',{z:11,c:'var(--accent)'})
+  ()=>P('M-46,-16 H46 V22 H-46 Z',{f:'#101820'})+TXV(0,3,'chip_vss',{z:11,c:'var(--accent)'})
      +P('M0,-16 V-40'),[-52,-52,52,30]),
 
 /* ---- off-chip testbench ---- */
-T('vdc','VDC','Testbench','',[['p',null,0,-40,'t'],['n',null,0,40,'b']],
+/* One voltage source and one current source. What they do over time (DC, sine,
+   pulse/square, piecewise-linear) is a property, picked in their dialog; the
+   glyph inside the circle follows it. */
+T('vsrc','Voltage source','Testbench','',[['p',null,0,-40,'t'],['n',null,0,40,'b']],
+  c=>P('M0,0 m-22,0 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0')+P('M0,-40 V-22')+P('M0,22 V40')
+     +P('M-4,-11 h8 M0,-15 v8',{s:ink,w:1.3})+SRCGLYPH(c,6),[-30,-52,30,52]),
+T('isrc','Current source','Testbench','',[['p',null,0,-40,'t'],['n',null,0,40,'b']],
+  c=>P('M0,0 m-22,0 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0')+P('M0,-40 V-22')+P('M0,22 V40')
+     +ISRCARROW(c)+SRCGLYPH(c,0,7),[-30,-52,30,52]),
+T('vdc','VDC','Legacy','',[['p',null,0,-40,'t'],['n',null,0,40,'b']],
   ()=>P('M0,0 m-22,0 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0')+P('M0,-40 V-22')+P('M0,22 V40')
      +TX(0,-4,'+',{z:13,c:ink})+TX(0,14,'\u2212',{z:13,c:ink}),[-30,-52,30,52]),
-T('vpulse','VPULSE','Testbench','',[['p',null,0,-40,'t'],['n',null,0,40,'b']],
+T('vpulse','VPULSE','Legacy','',[['p',null,0,-40,'t'],['n',null,0,40,'b']],
   ()=>P('M0,0 m-22,0 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0')+P('M0,-40 V-22')+P('M0,22 V40')
      +P('M-13,7 V-4 H-2 V7 H9 V-4',{w:1.4}),[-30,-52,30,52]),
-T('vpwl','VPWL','Testbench','',[['p',null,0,-40,'t'],['n',null,0,40,'b']],
+T('vpwl','VPWL','Legacy','',[['p',null,0,-40,'t'],['n',null,0,40,'b']],
   ()=>P('M0,0 m-22,0 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0')+P('M0,-40 V-22')+P('M0,22 V40')
      +P('M-13,8 L-4,-6 L4,4 L13,-8',{w:1.4}),[-30,-52,30,52]),
-T('idc','IDC','Testbench','',[['p',null,0,-40,'t'],['n',null,0,40,'b']],
+T('idc','IDC','Legacy','',[['p',null,0,-40,'t'],['n',null,0,40,'b']],
   ()=>P('M0,0 m-22,0 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0')+P('M0,-40 V-22')+P('M0,22 V40')
      +P('M0,-11 V11')+P('M-5,4 L0,11 L5,4 Z',{f:ink,s:null}),[-30,-52,30,52]),
+/* Loop probe: a wire at DC. Placed in a feedback path, it lets AC measure the
+   loop gain there (Tian's method, see loopResult). The arrow shows the signal
+   direction, from the output back to the amplifier input; a probe placed the
+   other way round is detected and corrected. */
+T('lprobe','Loop probe','Testbench','',[['a',null,0,-40,'t'],['b',null,0,40,'b']],
+  ()=>P('M0,-40 V-13')+P('M0,13 V40')+P('M-13,-13 H13 V13 H-13 Z',{f:'#101820'})
+     +P('M0,8 V-6')+P('M-4,-2 L0,-8 L4,-2 Z',{f:ink,s:null}),[-22,-52,22,52]),
 T('res','Resistor','Testbench','',[['a',null,0,-40,'t'],['b',null,0,40,'b']],
   ()=>P('M0,-40 V-20')+P('M0,20 V40')+P('M-9,-20 H9 V20 H-9 Z'),[-20,-52,20,52]),
 T('cap','Capacitor','Testbench','',[['a',null,0,-40,'t'],['b',null,0,40,'b']],
@@ -457,7 +521,7 @@ T('gnd','Ground','Testbench','',[['g',null,0,-20,'t']],
   ()=>P('M0,-20 V0')+P('M-14,0 H14')+P('M-8,5 H8')+P('M-3,10 H3'),[-20,-30,20,22]),
 /* Sine source. Drives transient directly and is the natural thing to select as
    the AC excitation. */
-T('vsin','VSIN','Testbench','',[['p',null,0,-40,'t'],['n',null,0,40,'b']],
+T('vsin','VSIN','Legacy','',[['p',null,0,-40,'t'],['n',null,0,40,'b']],
   ()=>P('M0,0 m-22,0 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0')+P('M0,-40 V-22')+P('M0,22 V40')
      +P('M-12,0 a6,6 0 0,1 12,0 a6,6 0 0,0 12,0',{w:1.5}),[-30,-52,30,52]),
 /* No-connect: marks a pin as deliberately left open, so it stops being reported
@@ -483,7 +547,7 @@ T('buslabel','Bus label','Annotation','',[['tap',null,0,40,'b']],
 function busLabelDraw(c){
   const b=(c&&c.props&&c.props.bus)||'?';
   return P('M-32,-22 H32 V16 H-32 Z',{f:'#101820'})
-    +TX(0,4,'BUS'+b,{z:11,c:'var(--wire)'})+P('M0,16 V40');
+    +TXV(0,-3,'BUS'+b,{z:11,c:'var(--wire)'})+P('M0,16 V40');
 }
 
 /* ---------- text annotation ---------- */
@@ -513,7 +577,7 @@ const LBLW =s=>Math.max(26,String(s).length*6.0+18);
 function drawLabel(c){
   const s=LBLNM(c), w=LBLW(s);
   return P(`M0,0 L11,-10 H${w} V10 H11 Z`,{f:'#0F141A',s:'var(--accent)',w:1.3})
-       + TX(11+(w-11)/2, 3.6, esc(s), {z:9.5,c:'var(--accent)'});
+       + TXV(11+(w-11)/2, 0, esc(s), {z:9.5,c:'var(--accent)'});
 }
 function bbLabel(c){ const w=LBLW(LBLNM(c)); return [-9,-15,w+5,15] }
 
@@ -584,7 +648,7 @@ function ota(bias,up){
   return d;
 }
 const BY=Object.fromEntries(LIB.map(c=>[c.k,c]));
-const isTB=k=>BY[k].g==='Testbench'||BY[k].g==='Annotation';
+const isTB=k=>BY[k].g==='Testbench'||BY[k].g==='Annotation'||BY[k].g==='Legacy';
 
 /* ==========================================================================
    State
@@ -600,7 +664,6 @@ let draw=null;                     // {pts:[[x,y]], elbowH:true}
 let selIds=new Set(), selSegs=new Set();
 let hover=null;                    // {kind:'dev',id} | {kind:'seg',i} under the cursor
 let opRes=null, showOp=false;      // last operating point, and whether to annotate it
-let probeReturn=false;             // escape from probe mode should reopen the simulator
 let hiNet=null, drag=null, pan=null, band=null;
 let busOf={}, alias={}, nameOfPin={}, nextNet=1, cur={x:0,y:0}, hoverPin=null;
 let view={x:60,y:40,k:.8};
@@ -640,6 +703,7 @@ const pinKey=(c,i)=>'p'+c.id+'_'+i;
    ========================================================================== */
 const SCHEMA=2;
 function snapshot(){
+  ensureNames();
   return JSON.stringify({v:SCHEMA,comps,segs,busOf,alias,uid,nextNet,nameOfPin});
 }
 /* ---------- schema 1 -> 2 ----------
@@ -682,7 +746,7 @@ function migrate(o){
 }
 function restore(s){
   const o=migrate(JSON.parse(s));
-  comps=o.comps||[]; segs=o.segs||[]; busOf=o.busOf||{}; alias=o.alias||{};
+  comps=(o.comps||[]).map(migrateSource); segs=o.segs||[]; busOf=o.busOf||{}; alias=o.alias||{};
   uid=o.uid||1; nextNet=o.nextNet||1; nameOfPin=o.nameOfPin||{};
   selIds=new Set(); selSegs=new Set(); drag=null; draw=null; band=null;
 }
@@ -694,6 +758,7 @@ function commit(){                        // call AFTER mutating state
   if(hist.length>120)hist.shift();
   hpos=hist.length-1;
   autosave();
+  if(typeof simStale==='function')simStale();
 }
 function undo(){ if(hpos<=0)return; hpos--; histLock=true; restore(hist[hpos]); histLock=false; autosave(); render(); }
 function redo(){ if(hpos>=hist.length-1)return; hpos++; histLock=true; restore(hist[hpos]); histLock=false; autosave(); render(); }
@@ -799,7 +864,10 @@ function elbow(a,b,h){
   return h? [[b[0],a[1]],b] : [[a[0],b[1]],b];
 }
 function render(){
-  const N=nets(), {find,bucket}=connectivity();
+  ensureNames();
+  const N=nets();
+  netsChanged(N);
+  const {find,bucket}=connectivity();
   const netByRoot={}; N.forEach(n=>netByRoot[n.root]=n);
   const netOfPin={}; N.forEach(n=>n.mem.forEach(m=>netOfPin[m.key]=n));
   const W=cv.clientWidth||1200, H=cv.clientHeight||800;
@@ -850,12 +918,23 @@ function render(){
   });
 
   /* devices */
+  const capsPlaced=[];
   const SIDEV={l:[-1,0],r:[1,0],t:[0,-1],b:[0,1]};
+  /* pin numbers are placed by rule below; reserve their spots first so no
+     caption lands on one */
+  comps.forEach(c=>BY[c.key].pins.forEach((p,i)=>{
+    if(p.pcb===null)return;
+    const q=pinPos(c,i), v=xfDir(c,...SIDEV[p.s]);
+    const side=Math.abs(v.x)>Math.abs(v.y)?(v.x<0?'l':'r'):(v.y<0?'t':'b');
+    const off={l:[-8,-6,'end'],r:[8,-6,'start'],t:[7,14,'start'],b:[7,-8,'start']}[side];
+    const w=String(p.pcb).length*5.6, x=off[2]==='end'?q.x+off[0]-w:q.x+off[0], y=q.y+off[1];
+    capsPlaced.push([x,y-8,x+w,y+2]);
+  }));
   comps.forEach(c=>{
     const d=BY[c.key];
     /* Symbol labels stay upright under rotation, but a text ANNOTATION is meant
        to rotate — that is the whole point of turning it. */
-    TXINV=c.key==='text'?'':xfSVGi(c);
+    TXINV=c.key==='text'?'':xfSVGi(c); TXVERT=(((c.r||0)%180)+180)%180===90;
     g+=`<g transform="translate(${c.x},${c.y}) ${xfSVG(c)}" data-dev="${c.id}">
       <rect x="${d.bb[0]}" y="${d.bb[1]}" width="${d.bb[2]-d.bb[0]}" height="${d.bb[3]-d.bb[1]}"
         fill="transparent"/>
@@ -863,7 +942,7 @@ function render(){
       ${d.pins.map((p,i)=>`<circle cx="${p.x}" cy="${p.y}" r="10" fill="transparent"
         data-pin="${c.id}|${i}"/>`).join('')}
     </g>`;
-    TXINV='';
+    TXINV=''; TXVERT=false;
     /* selection outline, hover highlight and pin annotation live in world space,
        so they stay axis-aligned and readable however the device is transformed */
     const hv=hover&&hover.kind==='dev'&&hover.id===c.id;
@@ -878,52 +957,38 @@ function render(){
       g+=`<rect x="${B[0]}" y="${B[1]}" width="${B[2]-B[0]}" height="${B[3]-B[1]}" rx="4"
         fill="none" stroke="var(--sel)" stroke-width="1" stroke-dasharray="4 4"/>`;
     }
-    /* Labels sit BESIDE the device, not under it. Pins are on the left, top and
-       bottom of most symbols, so the right flank is the one side wires rarely
-       occupy — and every label gets an opaque plate so a wire crossing it can
-       never turn it to mush. */
-    const B=bbox(c);
-    const lb=instLabel(c);
-    const rows=[];
-    if(lb)rows.push({t:lb,c:'var(--accent)',z:9.5});
-    if(showOp&&opRes&&opRes.byComp[c.id]){
-      opRes.byComp[c.id].forEach(o=>rows.push({
-        t:`${o.nm||BY[c.key].tag||BY[c.key].n}  ${fv(o.Id,'A')}  gm ${fv(o.gm,'S')}`+
-          `  ro ${fv(o.ro,'Ω')}  A₀ ${o.gain<1000?o.gain.toFixed(1):o.gain.toPrecision(3)}`,
-        c:o.region==='saturation'?'var(--good)':o.region==='triode'?'#D6A653':'#8A97A4',
-        z:8.5, sub:o.region}));
-    }
+    /* Device captions: small plain text, no plate. A transistor's goes under its
+       gate, left of the channel (the textbook spot); anything else tries the free
+       sides. Each spot is scored against wires, other parts and captions already
+       placed this frame, so captions stop landing on wires and on each other. */
+    const opc=showOp&&opRes&&opRes.byComp[c.id]?REGC(worstRegion(opRes.byComp[c.id])):'var(--accent)';
+    const rows=capRows(c,opc);
     if(rows.length){
-      const lh=12, padx=6, pady=4, gap=10;
-      const wid=Math.max(...rows.map(r=>r.t.length*r.z*0.56))+padx*2;
-      const hgt=rows.length*lh+pady*2;
-      /* Try each side and take the one the fewest wires run through. A symbol's
-         free flank depends on which pins it actually uses, so this beats always
-         picking one direction. */
-      const cands=[
-        [B[2]+gap,        (B[1]+B[3])/2-hgt/2],   // right
-        [B[0]-gap-wid,    (B[1]+B[3])/2-hgt/2],   // left
-        [(B[0]+B[2])/2-wid/2, B[3]+gap],          // below
-        [(B[0]+B[2])/2-wid/2, B[1]-gap-hgt]];     // above
-      const cost=(x,y)=>{
-        let n=0;
-        segs.forEach(sg=>{
-          const lx=Math.min(sg.x1,sg.x2),hx=Math.max(sg.x1,sg.x2);
-          const ly=Math.min(sg.y1,sg.y2),hy=Math.max(sg.y1,sg.y2);
-          if(hx>=x&&lx<=x+wid&&hy>=y&&ly<=y+hgt)n++;
-        });
-        comps.forEach(o=>{ if(o.id===c.id)return; const O=bbox(o);
-          if(O[2]>=x&&O[0]<=x+wid&&O[3]>=y&&O[1]<=y+hgt)n+=2; });
+      const lh=10, gap=6, B=bbox(c);
+      const wid=Math.max(...rows.map(r=>r.t.length*r.z*0.6)), hgt=rows.length*lh;
+      const cands=[];
+      const sd=SIMDEV[c.key];
+      /* a single transistor keeps its caption close: under the gate first, else
+         just beside the channel on the other side; only a real clash moves it */
+      if(sd&&sd.length===1&&(c.r||0)%180===0){
+        const q=xf(c,-21,12), r=xf(c,9,-6);
+        cands.push([q.x<c.x?q.x-wid:q.x,q.y,-5],[r.x<c.x?r.x-wid:r.x,r.y,-4]);
+      }
+      cands.push([B[2]+gap,(B[1]+B[3])/2-hgt/2,0],[B[0]-gap-wid,(B[1]+B[3])/2-hgt/2,0.3],
+                 [(B[0]+B[2])/2-wid/2,B[3]+gap,0.5],[(B[0]+B[2])/2-wid/2,B[1]-gap-hgt,0.6],
+                 [B[2]+gap,B[3]-hgt,0.4],[B[2]+gap,B[1],0.4]);
+      const hit=(x,y,X0,Y0,X1,Y1)=>X1>=x&&X0<=x+wid&&Y1>=y&&Y0<=y+hgt;
+      const cost=(x,y,bias)=>{
+        let n=bias;
+        segs.forEach(sg=>{if(hit(x,y,Math.min(sg.x1,sg.x2),Math.min(sg.y1,sg.y2),Math.max(sg.x1,sg.x2),Math.max(sg.y1,sg.y2)))n+=3});
+        comps.forEach(o=>{if(o.id===c.id||o.key==='text')return; const O=bbox(o); if(hit(x,y,O[0],O[1],O[2],O[3]))n+=2});
+        capsPlaced.forEach(r=>{if(hit(x,y,r[0],r[1],r[2],r[3]))n+=4});
         return n;
       };
       let best=cands[0],bc=Infinity;
-      cands.forEach(([x,y])=>{const k=cost(x,y); if(k<bc){bc=k;best=[x,y]}});
-      const [x0,y0]=best;
-      g+=`<rect x="${x0}" y="${y0}" width="${wid}" height="${hgt}" rx="3"
-         fill="var(--panel)" fill-opacity="0.93" stroke="#2A3541" stroke-width="0.8"/>`;
-      rows.forEach((r,i)=>{
-        g+=TX(x0+padx, y0+pady+lh*(i+1)-3.5, r.t, {z:r.z,c:r.c,a:'start'});
-      });
+      cands.forEach(([x,y,bias])=>{const k=cost(x,y,bias); if(k<bc){bc=k;best=[x,y]}});
+      const [x0,y0]=best; capsPlaced.push([x0,y0,x0+wid,y0+hgt]);
+      rows.forEach((r,i)=>{g+=TX(x0,y0+lh*(i+1)-2,esc(r.t),{z:r.z,c:r.c,a:'start'})});
     }
     d.pins.forEach((p,i)=>{
       const q=pinPos(c,i);
@@ -951,17 +1016,19 @@ function render(){
     const L=Math.abs(s.x2-s.x1)+Math.abs(s.y2-s.y1);
     if(!best[n.id]||L>best[n.id].L) best[n.id]={L,s,n};
   });
+  /* Shown only when it adds something: a name you gave the net (unless a net
+     label already says it), a probed net (so the plot legend can be matched),
+     the highlighted net, or the wire under the cursor. Auto names like net17
+     otherwise stay out of the way; hover a wire to see its name. */
+  const hovNet=hover&&hover.kind==='seg'?netByRoot[find('s'+hover.i+'a')]:null;
   Object.values(best).forEach(({s,n})=>{
-    const mx=(s.x1+s.x2)/2, my=(s.y1+s.y2)/2, w=n.name.length*6+10;
-    const hot=hiNet===n.id;
-    if(probe['V:'+n.name]){
-      g+=`<path d="M${mx-w/2-11},${my-13} l5,-5 l6,6 l-3,3 z M${mx-w/2-11},${my-13} l-4,4"
-         fill="var(--good)" stroke="var(--good)" stroke-width="1.4" stroke-linejoin="round"/>`;
-    }
-    g+=`<g data-net="${n.id}">
-      <rect x="${mx-w/2}" y="${my-19}" width="${w}" height="13" rx="2.5"
-        fill="var(--panel)" stroke="${hot?'var(--accent)':'#2A3541'}" stroke-width="0.9"/>
-      ${TX(mx,my-9.5,n.name,{z:9,c:hot?'var(--accent)':'#93A6B6'})}</g>`;
+    const named=!/^net\d+$/.test(n.name)&&!n.labels.length, probed=!!probe['V:'+n.name];
+    const hot=hiNet===n.id||hovNet===n;
+    if(!named&&!probed&&!hot)return;
+    const horiz=Math.abs(s.y2-s.y1)<EPS, mx=(s.x1+s.x2)/2, my=(s.y1+s.y2)/2;
+    const tx=horiz?mx:mx+5, ty=horiz?my-4:my, a=horiz?'middle':'start';
+    if(probed)g+=`<path d="M${tx-(horiz?n.name.length*2.6+10:-2)},${ty-7} l4,-4 l5,5 l-2.5,2.5 z" fill="var(--good)"/>`;
+    g+=`<g data-net="${n.id}">${TX(horiz?tx:(probed?tx+10:tx),ty,esc(n.name),{z:8,a,c:hot?'var(--accent)':probed?'var(--good)':'#7E8E9C'})}</g>`;
   });
 
   /* in-progress wire */
@@ -975,10 +1042,10 @@ function render(){
   /* ghost of the component about to be placed, already rotated/mirrored */
   if(placeKey){
     const d=BY[placeKey], gc={x:cur.x,y:cur.y,r:placeRot,m:placeMir,key:placeKey,props:placeProps};
-    TXINV=placeKey==='text'?'':xfSVGi(gc);
+    TXINV=placeKey==='text'?'':xfSVGi(gc); TXVERT=(((gc.r||0)%180)+180)%180===90;
     g+=`<g transform="translate(${cur.x},${cur.y}) ${xfSVG(gc)}" opacity="0.45"
          style="pointer-events:none">${d.draw(gc)}</g>`;
-    TXINV='';
+    TXINV=''; TXVERT=false;
     d.pins.forEach((p,i)=>{const q=xf(gc,p.x,p.y);
       g+=`<rect x="${q.x-2.8}" y="${q.y-2.8}" width="5.6" height="5.6" fill="none"
          stroke="var(--open)" stroke-width="1.3" opacity="0.7"/>`});
@@ -1015,7 +1082,7 @@ function render(){
   document.getElementById('hint').innerHTML =
     placeKey ? 'click to place \u00b7 <b>r</b> rotates \u00b7 <b>shift+R</b> mirrors \u00b7 esc cancels'
     : draw ? 'click again to finish the wire \u00b7 <b>r</b> flips the elbow \u00b7 esc cancels'
-    : mode==='wire' ? 'click anywhere to start \u00b7 click again to finish \u2014 it need not land on anything'
+    : mode==='wire' ? 'click to start \u00b7 click to add a corner \u00b7 click a pin or wire to connect \u00b7 double-click to end anywhere \u00b7 esc ends'
     : mode==='zoom' ? 'drag a region to zoom into it \u00b7 <b>esc</b> returns to select'
     : mode==='probe' ? 'click a net to probe it \u00b7 click again to remove \u00b7 <b>esc</b> goes back to the simulator'
     : mode==='delete' ? 'click to delete \u00b7 drag a box to clear a region \u00b7 <b>esc</b> returns to select'
@@ -1043,13 +1110,44 @@ function refreshPalette(){
    the Nets-panel dropdown. Any two nets that resolve to the SAME bus are one
    electrical node — the on-chip crossbar ties every pin on a bus together, so they
    are connected with or without a wire between them. Returns 1..10 or null. */
+/* A net needs a bus only when the crossbar has to join two or more pads. A net
+   that touches ONE pad (plus bench parts, or nothing) is reached directly on the
+   PCB header — routing it onto a bus would waste a bus and hang the bus's
+   capacitance on that pad. A bus label is an explicit request and always wins. */
+const padsOf=n=>[...new Set(n.onchip.map(m=>m.pcb))];
+/* On the chip a loop probe is just a wire. The schematic sees two nets (one per
+   side, so the simulator can break the loop there); everything that programs the
+   chip must see one. This joins them, keyed by the first net's id. */
+function chipNets(N){
+  const probes=comps.filter(c=>c.key==='lprobe'); if(!probes.length)return N;
+  const of={}; N.forEach(n=>n.keys.forEach(k=>of[k]=n));
+  const par=new Map(N.map(n=>[n,n])), f=n=>{while(par.get(n)!==n)n=par.get(n);return n};
+  probes.forEach(c=>{const a=of[pinKey(c,0)], b=of[pinKey(c,1)];
+    if(a&&b&&f(a)!==f(b))par.set(f(b),f(a))});
+  const g=new Map(); N.forEach(n=>{const r=f(n); if(!g.has(r))g.set(r,[]); g.get(r).push(n)});
+  return [...g.entries()].map(([r,ms])=>ms.length===1?r:
+    {...r, mem:ms.flatMap(x=>x.mem), onchip:ms.flatMap(x=>x.onchip), keys:ms.flatMap(x=>x.keys), joined:ms});
+}
+const busNeeded=n=>padsOf(n).length>=2||n.mem.some(m=>m.c.key==='buslabel');
+/* bench hookups: nets with a single pad, and what the schematic connects to it */
+function benchList(N){
+  return N.filter(n=>n.onchip.length&&!busNeeded(n)).map(n=>{
+    const tb=n.mem.filter(m=>isTB(m.c.key)&&!['noconn','netlabel','text'].includes(m.c.key));
+    const pad=padsOf(n)[0];
+    const what=tb.map(m=>m.c.key==='gnd'?'ground':
+      (m.c.nm||BY[m.c.key].n)+(m.c.key==='vsrc'||m.c.key==='isrc'?` (${srcSummary(m.c)})`:
+        VALKEY[m.c.key]?' '+instLabel(m.c).split('= ')[1]:'')).join(', ');
+    return {n,pad,what};
+  });
+}
 function netBus(n){
   const lbl=n.mem&&n.mem.find(m=>m.c.key==='buslabel');
   if(lbl){const b=+((lbl.c.props&&lbl.c.props.bus)||0); if(b>=1&&b<=10)return b;}
   const b=busOf[n.id]; return (b>=1&&b<=10)?b:null;
 }
 function meter(N){
-  const need=N.filter(n=>n.onchip.length), c=document.getElementById('mCnt');
+  N=chipNets(N);
+  const need=N.filter(busNeeded), c=document.getElementById('mCnt');
   /* count distinct buses in use, not nets — several nets can share one bus now */
   const taken={}; need.forEach(n=>{const b=netBus(n); if(b)(taken[b]=taken[b]||[]).push(n);});
   const used=Object.keys(taken).length;
@@ -1065,15 +1163,22 @@ function netPanel(N){
   if(!N.length){e.innerHTML=`<div style="padding:12px;color:var(--dim);font-size:11.5px">
     No nets yet. Place devices, press <b>w</b> and route between pins \u2014 or press
     <b>l</b> and drop the same net label on two pins.</div>`;return}
+  const CN=chipNets(N);
   e.innerHTML=N.map(n=>{
+    const nn=CN.find(x=>x.id===n.id)||n;       // with a probe's far side joined in
     const lbl=n.mem.find(m=>m.c.key==='buslabel');
     const b=busOf[n.id]||'';
     const mem=n.mem.map(m=>`${BY[m.c.key].tag||BY[m.c.key].n}.${m.nm}${m.pcb!==null?
       `<span style="color:#3D4956">/</span>${m.pcb}`:''}`).join('   ');
     /* a net carrying a bus label takes its bus from the label (shown fixed here);
        other on-chip nets keep the editable dropdown */
-    const busCtl = lbl
+    const jg=CN.find(x=>x.joined&&x.joined.includes(n)&&x.id!==n.id);
+    const busCtl = jg
+      ? `<span title="joined through a loop probe \u2014 on the chip it is the same wire" style="font-family:var(--mono);font-size:10px;color:var(--dim)">via probe \u2192 ${esc(jg.name)}</span>`
+      : lbl
       ? `<span title="set by the bus label \u2014 double-click the label to change" style="font-family:var(--mono);font-size:10.5px;color:var(--wire)">BUS${(lbl.c.props&&lbl.c.props.bus)||'?'}</span>`
+      : !busNeeded(nn)&&n.onchip.length
+      ? `<span title="only one pad on this net — wire it on the PCB header, no bus needed" style="font-family:var(--mono);font-size:10px;color:var(--dim)">pad ${padsOf(nn)[0]} · bench</span>`
       : (n.onchip.length?`<select class="${b?'':'unset'}" data-bus="${n.id}"><option value="">\u2014</option>
         ${[1,2,3,4,5,6,7,8,9,10].map(x=>`<option value="${x}"${x==b?' selected':''}>BUS${x}</option>`).join('')}
       </select>`:'');
@@ -1089,7 +1194,8 @@ function netPanel(N){
    the exporter can refuse on exactly what the user was warned about.
    ========================================================================== */
 function problems(N){
-  const m=[], need=N.filter(n=>n.onchip.length);
+  N=chipNets(N);
+  const m=[], need=N.filter(busNeeded);
   /* the limit is 10 physical buses; nets may SHARE a bus now, so count distinct
      buses in use rather than nets */
   const busesUsed=new Set(); need.forEach(n=>{const b=netBus(n); if(b)busesUsed.add(b);});
@@ -1158,23 +1264,105 @@ function instLabel(c){
   const v=VALKEY[c.key];
   if(v){
     const raw=c.props&&c.props[v[1]];
-    if(!raw)return v[0]+' = ?';
+    if(!raw)return (c.nm||v[0])+' = ?';
     /* "1000" reads as 1 kOhm, "200f" as 200 fF — normalise through the same
        SI formatter the measurement panel uses, so the sheet carries units. */
     const num=pv(raw);
-    return v[0]+' = '+(isFinite(num)&&num!==0?fv(num,v[2]):raw+' '+v[2]);
+    return (c.nm||v[0])+' = '+(isFinite(num)&&num!==0?fv(num,v[2]):raw+' '+v[2]);
   }
-  if(c.key==='vpulse') return 'pulse';
-  if(c.key==='vpwl')   return 'pwl';
+  if(c.key==='vsrc'||c.key==='isrc') return c.nm+'  '+srcSummary(c);
+  if(c.key==='lprobe') return c.nm+'  loop probe';
+  if(c.key==='vpulse') return c.nm+' pulse';
+  if(c.key==='vpwl')   return c.nm+' pwl';
   if(c.key==='vsin'){
     const f=c.props&&c.props.freq, a=c.props&&c.props.va;
-    return 'sin '+(a?fv(pv(a),'V'):'?')+' @ '+(f?fv(pv(f),'Hz'):'?');
+    return c.nm+' sin '+(a?fv(pv(a),'V'):'?')+' @ '+(f?fv(pv(f),'Hz'):'?');
   }
   if(c.key==='noconn') return '';
   /* a net label already says its name on the sheet — a caption would just repeat it */
   if(c.key==='netlabel') return '';
   if(c.key==='gnd'||c.key==='chip_vdd'||c.key==='chip_vss') return '';
-  return c.key;
+  return instName(c);
+}
+
+/* ---------- unified sources ----------
+   Fields shown for each mode, in order. Keys are shared across modes where the
+   meaning is the same (td = delay), so switching mode keeps what you typed. */
+const SRCMODES=[['dc','DC'],['sin','Sine'],['pulse','Pulse / square'],['pwl','PWL']];
+const SRCF={
+  dc:[['dc','value']],
+  sin:[['off','DC offset'],['amp','amplitude (peak)'],['freq','frequency','Hz'],['ph','phase','°'],['td','delay','s']],
+  pulse:[['v1','low level'],['v2','high level'],['td','delay','s'],['tr','rise time','s'],['tf','fall time','s'],
+         ['pw','high time','s'],['per','period','s']],
+  pwl:[['pwl','time value, time value, …','']]};
+const srcU=c=>c.key==='isrc'?'A':'V';
+const sp=(c,k)=>(c.props&&c.props[k]!==undefined&&c.props[k]!=='')?c.props[k]:PDEF[c.key][k];
+function srcSummary(c){
+  const m=sp(c,'mode'), u=srcU(c), f=k=>fv(pv(sp(c,k)),u);
+  if(m==='sin')  return `sin ${f('amp')} @ ${fv(pv(sp(c,'freq')),'Hz')}, dc ${f('off')}`;
+  if(m==='pulse')return `pulse ${f('v1')} → ${f('v2')}, T ${fv(pv(sp(c,'per')),'s')}`;
+  if(m==='pwl')  return 'pwl';
+  return f('dc');
+}
+/* files saved before the unified sources: VDC / VSIN / VPULSE / VPWL / IDC */
+function migrateSource(c){
+  const p=c.props||{}, o={...c};
+  if(c.key==='vdc'){o.key='vsrc';o.props={mode:'dc',...(p.v!==undefined?{dc:p.v}:{})}}
+  else if(c.key==='idc'){o.key='isrc';o.props={mode:'dc',...(p.i!==undefined?{dc:p.i}:{})}}
+  else if(c.key==='vsin'){o.key='vsrc';o.props={mode:'sin'};
+    [['vo','off'],['va','amp'],['freq','freq'],['ph','ph']].forEach(([a,b])=>{if(p[a]!==undefined)o.props[b]=p[a]})}
+  else if(c.key==='vpulse'){o.key='vsrc';o.props={mode:'pulse',...p}}
+  else if(c.key==='vpwl'){o.key='vsrc';o.props={mode:'pwl',...(p.pwl?{pwl:p.pwl}:{})}}
+  return o;
+}
+
+/* Caption lines for a part on the sheet: its name, then (smaller, dimmer) what
+   matters about it: a transistor's size, a source's waveform, a passive's value. */
+function capRows(c,nameCol){
+  const k=c.key, out=[], dim='#7E8E9C';
+  if(['text','noconn','netlabel','buslabel','gnd','chip_vdd','chip_vss'].includes(k))return out;
+  if(k==='vsrc'||k==='isrc'){
+    const m=sp(c,'mode'),u=srcU(c),f=q=>fv(pv(sp(c,q)),u);
+    out.push({t:c.nm+(m==='dc'?'  '+f('dc'):''),c:nameCol,z:8.5});
+    if(m==='sin'){out.push({t:`sin ${f('amp')} ${fv(pv(sp(c,'freq')),'Hz')}`,c:dim,z:7.5});out.push({t:`dc ${f('off')}`,c:dim,z:7.5})}
+    if(m==='pulse'){out.push({t:`pulse ${f('v1')}→${f('v2')}`,c:dim,z:7.5});out.push({t:`T ${fv(pv(sp(c,'per')),'s')}`,c:dim,z:7.5})}
+    if(m==='pwl')out.push({t:'pwl',c:dim,z:7.5});
+    return out;
+  }
+  const v=VALKEY[k];
+  if(v){out.push({t:(c.nm||v[0])+'  '+instLabel(c).split('= ')[1],c:nameCol,z:8.5});return out}
+  if(k==='lprobe'){out.push({t:c.nm,c:nameCol,z:8.5});return out}
+  out.push({t:instName(c),c:nameCol,z:8.5});
+  const sd=SIMDEV[k]; if(sd&&sd.length===1)out.push({t:sd[0].M+'x',c:dim,z:7.5});
+  return out;
+}
+
+/* ---------- instance names ----------
+   Every on-chip block exists once on the die, so a short fixed name identifies it
+   (hover the part list for the full name). Testbench parts get SPICE-style names
+   (V1, I1, R1 ...) stored on the part, so they stay put when others are deleted. */
+const SHORT={cs_nmos_4x_a:'CSn A',cs_nmos_4x_b:'CSn B',cs_pmos_4x_a:'CSp A',cs_pmos_4x_b:'CSp B',
+  dp_nmos_1x_a:'DPn1 A',dp_nmos_1x_b:'DPn1 B',dp_nmos_4x_a:'DPn4 A',dp_nmos_4x_b:'DPn4 B',
+  dp_pmos_1x_a:'DPp1 A',dp_pmos_1x_b:'DPp1 B',dp_pmos_4x_a:'DPp4 A',dp_pmos_4x_b:'DPp4 B',
+  inverter_a:'INV A',inverter_b:'INV B',nmos_currentmirror:'MIRn',pmos_currentmirror:'MIRp',
+  nmos_currentmirror_array:'ARRn',pmos_currentmirror_array:'ARRp',ota_nmos:'OTAn',ota_pmos:'OTAp'};
+const NMPFX={lprobe:'P',vsrc:'V',isrc:'I',vdc:'V',vpulse:'V',vpwl:'V',vsin:'V',idc:'I',res:'R',cap:'C',ind:'L'};
+function ensureNames(){
+  /* keep every valid, unique name; rename the rest (missing, duplicated by a
+     paste, or carrying another part type's prefix) to the lowest free number */
+  const used=new Set(), redo=[];
+  comps.forEach(c=>{
+    const p=NMPFX[c.key]; if(!p)return;
+    if(c.nm&&!used.has(c.nm)&&new RegExp('^'+p+'\\d+$').test(c.nm))used.add(c.nm);
+    else redo.push(c);
+  });
+  redo.forEach(c=>{const p=NMPFX[c.key]; let k=1; while(used.has(p+k))k++; c.nm=p+k; used.add(c.nm)});
+}
+function instName(c){ return SHORT[c.key]||c.nm||BY[c.key].n; }
+const REGC=r=>r==='saturation'?'var(--good)':r==='triode'?'#D6A653':'#8A97A4';
+function worstRegion(recs){
+  const rank={saturation:0,triode:1,subthreshold:2,cutoff:3};
+  return recs.map(o=>o.region).sort((a,b)=>(rank[b]||0)-(rank[a]||0))[0];
 }
 
 /* ==========================================================================
@@ -1455,7 +1643,7 @@ function reportRewire(before){
    Palette
    ========================================================================== */
 (function(){
-  const gs=[...new Set(LIB.map(c=>c.g))];
+  const gs=[...new Set(LIB.map(c=>c.g))].filter(g=>g!=='Legacy');
   document.getElementById('left').innerHTML=gs.map(g=>{
     const inGroup=LIB.filter(c=>c.g===g);
     const items=inGroup.map(c=>`<div class="item" data-add="${c.k}">
@@ -1583,8 +1771,8 @@ cv.addEventListener('mousedown',e=>{
         const d=Math.hypot(q.x-w.x,q.y-w.y); if(d<bd){bd=d;bi=i}});
       if(bi>=0&&bd<40){const n=nets().find(x=>x.keys.includes(pinKey(c,bi)));if(n)name=n.name}
     }
-    if(name){ const k='V:'+name; probe[k]=!probe[k]; probeAuto=false;
-              toast((probe[k]?'probing ':'removed probe on ')+name); }
+    if(name){ const k='V:'+name; probe[k]=!probe[k]; probeChanged();
+              toast((probe[k]?'showing ':'hiding ')+name); }
     render();return;
   }
   if(mode==='delete'){
@@ -1594,16 +1782,20 @@ cv.addEventListener('mousedown',e=>{
     render();return;
   }
   if(mode==='wire'){
-    /* Two clicks and the wire is down: one to start, one to finish, wherever the
-       cursor happens to be — a pin, another wire, or bare grid. Nothing has to be
-       connected to anything for the wire to stay. */
+    /* Click to start; each further click on bare grid drops a corner and keeps
+       drawing, so a path with turns is one gesture. Landing on a pin or another
+       wire connects and finishes. Double-click (or Esc / right-click) finishes on
+       bare grid, for a deliberately floating end. */
     const t=snapTarget(w);
     if(!draw){draw={pts:[[t.x,t.y]],elbowH:true};cur={x:t.x,y:t.y};render();return}
-    /* the second click finishes the wire wherever it lands — a floating end (only
-       one side on a pin, or neither) is fine, which is what stubs and bus taps need.
-       For a path with several corners, draw a few wires; they join where they meet. */
-    draw.pts=draw.pts.concat(elbow(draw.pts[draw.pts.length-1],[t.x,t.y],draw.elbowH));
-    endDraw(true);return;
+    const last=draw.pts[draw.pts.length-1];
+    if(t.x===last[0]&&t.y===last[1])return;       // second click of a double-click
+    draw.pts=draw.pts.concat(elbow(last,[t.x,t.y],draw.elbowH));
+    const st=draw.pts[0];
+    if(t.kind!=='grid'&&!(t.x===st[0]&&t.y===st[1])){endDraw(true);return}
+    /* the next leg leaves perpendicular to the one just drawn */
+    const pv2=draw.pts[draw.pts.length-2]; draw.elbowH=pv2[0]===t.x;
+    cur={x:t.x,y:t.y}; render(); return;
   }
 
   const addTo=e.shiftKey||e.metaKey||e.ctrlKey;
@@ -1858,8 +2050,8 @@ window.addEventListener('keydown',e=>{
   }
   /* escape always lands back in select mode */
   if(e.key==='Escape'){
-    if(mode==='probe'&&probeReturn){probeReturn=false;setMode('select');openSim();return}
-    if(draw||placeKey||band){draw=null;band=null;placeKey=null;placeRot=0;placeMir=0;placeProps=null;
+    if(draw)endDraw(true);                     // keep the corners already clicked
+    if(placeKey||band){band=null;placeKey=null;placeRot=0;placeMir=0;placeProps=null;
       document.querySelectorAll('.item.on').forEach(x=>x.classList.remove('on'));}
     else {selSegs.clear();selIds.clear()}
     setMode('select');return;
@@ -1909,7 +2101,7 @@ function fit(){
 document.getElementById('bFit').onclick=fit;
 
 document.getElementById('bAuto').onclick=()=>{
-  const all=nets().filter(n=>n.onchip.length);
+  const all=chipNets(nets()).filter(busNeeded);
   const hasLabel=n=>n.mem.some(m=>m.c.key==='buslabel');
   const labeled=all.filter(hasLabel), free=all.filter(n=>!hasLabel(n));
   /* buses already claimed by bus labels are off-limits to the auto-assigner */
@@ -1934,7 +2126,7 @@ document.getElementById('bClr').onclick=()=>{
    rather than producing plausible-looking JSON.
    ========================================================================== */
 document.getElementById('bExp').onclick=()=>{
-  const all=nets(), N=all.filter(n=>n.onchip.length);
+  const all=chipNets(nets()), N=all.filter(busNeeded);
   const errs=problems(all).filter(p=>p[0]==='e');
   const out=document.getElementById('out');
   if(errs.length){
@@ -1960,6 +2152,10 @@ document.getElementById('bExp').onclick=()=>{
   document.getElementById('bDl').style.display=ks.length?'':'none';
   document.getElementById('picolog').textContent='';
   document.getElementById('picolog').classList.remove('on');
+  const bl=benchList(all), be=document.getElementById('benchlist');
+  be.textContent=bl.length?'Bench wiring (not in the file \u2014 these pads connect straight to your instruments):\n'+
+    bl.map(x=>`  pad ${x.pad}  (${x.n.name})  \u2190  ${x.what||'nothing yet'}`).join('\n'):'';
+  be.style.display=bl.length?'':'none';
   document.getElementById('modal').classList.add('show')};
 let lastConns=null;
 document.getElementById('bClose').onclick=()=>document.getElementById('modal').classList.remove('show');
@@ -2121,23 +2317,53 @@ document.getElementById('fOpen').addEventListener('change',e=>{
   rd.readAsText(f);
   e.target.value='';                       // let the same file be reopened
 });
+/* ---------- operating-point table (right panel) ----------
+   One collapsible row per placed block, named as on the sheet. Rebuilt only when
+   a new operating point arrives, so open/closed state and hover survive redraws. */
+const opOpen=new Set();
+function renderOp(){
+  const box=document.getElementById('opbox');
+  if(!showOp||!opRes){box.classList.remove('show');box.innerHTML='';return}
+  const ids=Object.keys(opRes.byComp).map(Number)
+    .map(id=>comps.find(c=>c.id===id)).filter(Boolean)
+    .sort((a,b)=>instName(a).localeCompare(instName(b)));
+  const f3=x=>isFinite(x)?x.toFixed(3)+' V':'—';
+  const row=(k,v)=>`<span>${k}</span><span>${v}</span>`;
+  box.innerHTML=`<div class="ophead"><span class="ph">Operating point${opRes.conv?'':' ⚠ not converged'}</span>
+      <button type="button" id="opX" title="hide the operating point">✕</button></div>`+
+    ids.map(c=>{
+      const recs=opRes.byComp[c.id], w=worstRegion(recs);
+      return `<details data-opdev="${c.id}"${opOpen.has(c.id)?' open':''}>
+        <summary><span class="arr">▸</span><span class="dot" style="background:${REGC(w)}"></span>
+          <span class="nm" title="${BY[c.key].n}">${instName(c)}</span>
+          <span class="id">${recs.length>1?recs.length+' devices':fv(recs[0].Id,'A')}</span></summary>
+        ${recs.map(o=>`<div class="tr">
+          ${recs.length>1?`<div class="trn">${o.nm||'device'}</div>`:''}
+          <div class="kv">
+            ${row('region',`<b style="color:${REGC(o.region)};font-weight:500">${o.region}</b>`)}${row('Id',fv(o.Id,'A'))}
+            ${row('Vgs',f3(o.Vgs))}${row('Vds',f3(o.Vds))}
+            ${row('Vov',f3(o.Vov))}${row('Vdsat',f3(o.Vdsat))}
+            ${row('gm',fv(o.gm,'S'))}${row('ro',fv(o.ro,'Ω'))}
+            ${row('gm·ro',o.gain<1000?o.gain.toFixed(1):o.gain.toPrecision(3))}${row('gm/Id',o.gmid.toFixed(1)+' /V')}
+          </div></div>`).join('')}
+      </details>`}).join('');
+  box.classList.add('show');
+}
+function clearOp(){showOp=false;opRes=null;document.getElementById('bOp').classList.remove('on');renderOp();render()}
+(()=>{
+  const box=document.getElementById('opbox');
+  box.addEventListener('click',e=>{if(e.target.closest('#opX'))clearOp()});
+  box.addEventListener('toggle',e=>{const d=e.target;if(!d.dataset||!d.dataset.opdev)return;
+    const id=+d.dataset.opdev; d.open?opOpen.add(id):opOpen.delete(id)},true);
+  /* hovering a row lights up that device on the sheet */
+  box.addEventListener('mouseover',e=>{const d=e.target.closest('[data-opdev]');
+    const h=d?{kind:'dev',id:+d.dataset.opdev}:null;
+    if(!sameHit(h,hover)){hover=h;render()}});
+  box.addEventListener('mouseleave',()=>{if(hover){hover=null;render()}});
+})();
+
 document.getElementById('bText').onclick=()=>openTextDialog(null);
-document.getElementById('bOp').onclick=()=>{
-  if(showOp){showOp=false;opRes=null;
-    document.getElementById('bOp').classList.remove('on');render();return}
-  const ct=buildCircuit();
-  if(!ct.devs.some(d=>d.kind==='m')){alert('No transistors to solve — place some devices first.');return}
-  const bad=noDCPath(ct);
-  if(bad.length){alert(dcPathAdvice(bad,ct));return}
-  let op; try{ op=operatingPoint(ct) }catch(e){ alert('Operating point failed: '+e.message); return }
-  opRes=op; showOp=true;
-  document.getElementById('bOp').classList.add('on');
-  const sat=op.mos.filter(d=>d.region==='saturation').length;
-  toast(op.conv? `op: ${op.mos.length} devices, ${sat} in saturation`
-               : '\u26a0 operating point did not fully converge');
-  if(ct.warn.length)toast('\u26a0 '+ct.warn[0]);
-  render();
-};
+document.getElementById('bOp').onclick=()=>{ if(showOp){clearOp();return} runAnalysis('op'); };
 document.getElementById('bUndo').onclick=undo;
 document.getElementById('bRedo').onclick=redo;
 document.getElementById('bRot').onclick=()=>turn(90);
@@ -2259,6 +2485,10 @@ const SIMDEV={
 };
 /* default properties per testbench block */
 const PDEF={
+  vsrc:{mode:'dc',dc:'1.25',off:'1.25',amp:'50m',freq:'1k',ph:'0',td:'0',
+        v1:'0',v2:'2.5',tr:'10n',tf:'10n',pw:'5u',per:'10u',pwl:'0 0, 10u 2.5'},
+  isrc:{mode:'dc',dc:'100u',off:'100u',amp:'10u',freq:'1k',ph:'0',td:'0',
+        v1:'0',v2:'100u',tr:'10n',tf:'10n',pw:'5u',per:'10u',pwl:'0 0, 10u 100u'},
   vpulse:{v1:'0',v2:'2.5',td:'2n',tr:'0.5n',tf:'0.5n',pw:'8n',per:'20n'},
   vdc:{v:'1.25'}, idc:{i:'10u'}, res:{r:'10k'}, cap:{c:'200f'}, ind:{l:'1u'},
   vsin:{vo:'1.25',va:'10m',freq:'1MEG',ph:'0'},
@@ -2361,7 +2591,7 @@ function buildCircuit(){
     /* A no-connect contributes nothing electrically. Its value is that it forms
        a net with the pin it sits on, so that pin stops reading as floating. */
     if(k==='noconn')return;
-    if(k==='vdc'||k==='vpulse'||k==='vpwl'||k==='vsin'){
+    if(k==='vdc'||k==='vpulse'||k==='vpwl'||k==='vsin'||k==='vsrc'){
       const a=pinNet(c,'p'), b=pinNet(c,'n');
       if(!a){warn.push('a source has an unconnected + terminal');return}
       if(b&&fixed[b]===undefined) warn.push('source negative terminal is not grounded');
@@ -2371,9 +2601,11 @@ function buildCircuit(){
       if(a&&b)caps.push({a,b,C:prop(c,'c')}); return;}
     if(k==='ind'){ if(pinNet(c,'a')&&pinNet(c,'b'))
       warn.push('inductor is symbol-only — it has no simulation model and is ignored'); return;}
+    /* a loop probe is a wire at DC */
+    if(k==='lprobe'){const a=pinNet(c,'a'),b=pinNet(c,'b'); if(a&&b)ress.push({a,b,G:1e3}); return;}
     if(k==='res'){const a=pinNet(c,'a'),b=pinNet(c,'b');
       if(a&&b)ress.push({a,b,G:1/Math.max(prop(c,'r'),1e-9)}); return;}
-    if(k==='idc'){const a=pinNet(c,'p'),b=pinNet(c,'n');
+    if(k==='idc'||k==='isrc'){const a=pinNet(c,'p'),b=pinNet(c,'n');
       if(a&&b)devs.push({kind:'i',cid:c.id,a,b,I:prop(c,'i')}); return;}
     if(k==='text')return;
     const sd=SIMDEV[k];
@@ -2824,475 +3056,811 @@ function measure(T,Yin,Yout){
 }
 
 /* ==========================================================================
-   Simulation UI.
+   Simulation — real ngspice, compiled to WebAssembly, running in the page.
 
-   One panel drives four analyses. They share the plot, which switches its X
-   axis (time / sweep value / log frequency) and its Y axis (volts / whatever a
-   device probe measures / dB and degrees) to suit.
+   The schematic is turned into an ngspice netlist behind the scenes; nobody has
+   to write one. The engine (vendor/ngspice-engine.js, from the MIT-licensed
+   eecircuit-engine package) loads the first time something is simulated.
    ========================================================================== */
 const TRC=['#4FD0E3','#E9C84A','#7FD68A','#E08A6A','#B79BE0','#6FA8DC','#D98BB0','#8FD3C7'];
-let anaType='tran';
-let simAdv=false;                   // DC sweep + AC/Bode stay hidden until "Adv" is on
-let simCfg={tstop:'60n',hmax:'2p',icNode:'',icV:'0',
-            dc:{srcId:null,from:'0',to:'2.5',points:'101',
-                stepOn:false,stepSrc:null,stepFrom:'0.6',stepTo:'1.8',stepPoints:'4'},
-            ac:{srcId:null,fstart:'1',fstop:'1G',points:'201',phase:true}};
-let simRes=null;                    // {kind, ...} whatever the last run produced
-let probe={};                       // signal key -> on/off
-let probeAuto=true;
-let plView=null, plCur=null;
 
-/* every signal the current analysis could plot */
-function signalList(ct){
-  const out=[];
-  ct.N.forEach(n=>out.push({k:'V:'+n.name, label:'V('+n.name+')', kind:'v', node:n.name, unit:'V'}));
-  if(anaType==='dc'){
-    ct.devs.filter(d=>d.kind==='m').forEach((d,i)=>{
-      const who=d.key+(d.nm?' · '+d.nm:'');
-      [['Id','A'],['gm','S'],['ro','Ω'],['gain',''],['gmid','1/V'],
-       ['Vgs','V'],['Vds','V'],['Vov','V']].forEach(([p,u])=>
-        out.push({k:'D:'+i+':'+p, label:who+' · '+p, kind:'d', di:i, param:p, unit:u}));
+/* Transistor models: BSIM3v3 (ngspice level 8). The parameters that set DC
+   behaviour were fitted, with ngspice itself in the loop, to measurements of
+   this chip (Board 1, 2026-09-26): diode-connected unit nMOS and pMOS from
+   63 µA to 890 µA, and mirror output current vs VDS at 100 µA.
+   Fit: I-V within ±1.7 %, output-curve ratios within ±0.5 %.
+   Everything else is BSIM3 default for a 5 nm oxide at L = 0.5 µm. Capacitances
+   are therefore estimates; speed is dominated by the pad capacitance below. */
+const MODELCARDS=
+`.model mosn nmos level=8 version=3.3 mobmod=1 capmod=3 tox=5n xj=1.5e-7 nch=1.7e17
++ vth0=0.5421 u0=415.5 ua=6.795e-10 ub=0 uc=0 vsat=5.892e4 pclm=1.565 pdiblc1=0.39 pdiblc2=2.28e-6
++ drout=0.56 pvag=0 rdsw=0 dsub=0.56 eta0=0.08 nfactor=1
++ cgso=3e-10 cgdo=3e-10 cj=1e-3 cjsw=3e-10 mj=0.5 mjsw=0.33 pb=0.8 pbsw=0.8
+.model mosp pmos level=8 version=3.3 mobmod=1 capmod=3 tox=5n xj=1.5e-7 nch=1.7e17
++ vth0=-0.5202 u0=145.7 ua=8.763e-10 ub=0 uc=0 vsat=2.389e4 pclm=1.575 pdiblc1=0.39 pdiblc2=3.26e-10
++ drout=0.56 pvag=0 rdsw=0 dsub=0.56 eta0=0.08 nfactor=1
++ cgso=3e-10 cgdo=3e-10 cj=1e-3 cjsw=3e-10 mj=0.5 mjsw=0.33 pb=0.8 pbsw=0.8`;
+/* unit device geometry (transistor_models_tsmc025_public.inc: 8/0.5 nMOS, 24/0.5 pMOS) */
+const UNITDEV={n:'w=8u l=0.5u ad=4p as=4p pd=17u ps=17u', p:'w=24u l=0.5u ad=12p as=12p pd=49u ps=49u'};
+
+/* Settings a user may want to change. cpad: every chip pad on a net adds this
+   much capacitance to ground (pad + ESD + switch junctions + PCB + header).
+   60 pF reproduces the ~0.9 MHz follower bandwidth measured on the OTA. */
+const SIMDEF={ana:'tran', vdd:'2.5', cpadOn:true, cpad:'60p',
+  dc:{src:null,from:'0',to:'2.5',step:'10m',step2On:false,src2:null,from2:'0.6',to2:'1.2',step2:'0.2'},
+  ac:{mode:'resp',src:null,probe:null,f1:'1',f2:'100M',ppd:'20'},
+  tran:{tstop:'20u',tstart:'0',icNode:'',icV:''}};
+let SIM=JSON.parse(JSON.stringify(SIMDEF));
+try{const o=JSON.parse(localStorage.getItem('mosbius.sim.v2')||'null');
+  if(o)SIM={...SIM,...o,dc:{...SIM.dc,...o.dc},ac:{...SIM.ac,...o.ac},tran:{...SIM.tran,...o.tran}}}catch(e){}
+const saveSim=()=>{try{localStorage.setItem('mosbius.sim.v2',JSON.stringify(SIM))}catch(e){}};
+
+let simRes=null;                     // last result
+let probe={};                        // signal key ('V:net' / 'I:V1') -> shown in the plot
+let simBusy=false;
+
+/* ---------- the engine ---------- */
+let engineP=null;
+function loadEngine(){
+  if(engineP)return engineP;
+  engineP=new Promise((res,rej)=>{
+    const timer=setTimeout(()=>rej(new Error('ngspice took too long to start')),60000);
+    const go=E=>{const s=new E.Simulation(); s.start().then(()=>{clearTimeout(timer);res(s)},rej)};
+    if(window['EEcircuit-engine'])return go(window['EEcircuit-engine']);
+    const sc=document.createElement('script'); sc.src='vendor/ngspice-engine.js';
+    sc.onload=()=>go(window['EEcircuit-engine']);
+    /* no local copy: fetch the published package (needs internet) */
+    sc.onerror=()=>import('https://cdn.jsdelivr.net/npm/eecircuit-engine@1.8.0/dist/eecircuit-engine.mjs')
+      .then(go).catch(()=>{clearTimeout(timer);
+        rej(new Error('could not load ngspice: vendor/ngspice-engine.js is missing next to this file, and there is no internet connection to fetch it'))});
+    document.head.appendChild(sc);
+  });
+  engineP.catch(()=>{engineP=null});
+  return engineP;
+}
+
+/* ---------- schematic -> ngspice netlist ---------- */
+const nf=x=>{const v=typeof x==='number'?x:pv(x); return isFinite(v)?String(+v.toPrecision(7)):'0'};
+function srcSpice(c,acIn){
+  const v=k=>nf(sp(c,k)), m=sp(c,'mode');
+  let t;
+  if(m==='sin')  t=`dc ${v('off')} sin(${v('off')} ${v('amp')} ${v('freq')} ${v('td')} 0 ${v('ph')})`;
+  else if(m==='pulse')t=`dc ${v('v1')} pulse(${v('v1')} ${v('v2')} ${v('td')} ${v('tr')} ${v('tf')} ${v('pw')} ${v('per')})`;
+  else if(m==='pwl'){const ps=pwlPairs(sp(c,'pwl'))||[[0,0]];
+    t=`dc ${nf(ps[0][1])} pwl(${ps.map(p=>nf(p[0])+' '+nf(p[1])).join(' ')})`}
+  else t=`dc ${v('dc')}`;
+  return t+(acIn?' ac 1':'');
+}
+function spiceNetlist(ana){
+  const N=nets(), warn=[];
+  /* nets on the same bus are one node — the crossbar joins them */
+  const busCanon={};
+  N.forEach(n=>{const b=netBus(n); if(b!=null&&busCanon[b]===undefined)busCanon[b]=n.name});
+  const canon=n=>{const b=netBus(n); return (b!=null&&busCanon[b]!==undefined)?busCanon[b]:n.name};
+  const netOf={}; N.forEach(n=>n.mem.forEach(m=>netOf[m.key]=canon(n)));
+  const pinNet=(c,nm)=>{const i=BY[c.key].pins.findIndex(p=>p.nm===nm);
+    return i<0?null:(netOf[pinKey(c,i)]||null)};
+  const rail={};
+  comps.forEach(c=>{
+    if(c.key==='gnd'){const n=pinNet(c,'g');if(n)rail[n]='0'}
+    if(c.key==='chip_vss'){const n=pinNet(c,'chip_vss');if(n)rail[n]='0'}});
+  comps.forEach(c=>{if(c.key==='chip_vdd'){const n=pinNet(c,'chip_vdd');if(n&&!rail[n])rail[n]='vdd'}});
+  const node={}, used=new Set(['0','vdd']), back={'vdd':'chip VDD'};
+  const sn=name=>{
+    if(rail[name])return rail[name]; if(node[name])return node[name];
+    const b='n_'+name.replace(/[^A-Za-z0-9_]/g,'_').toLowerCase(); let k=b,i=2;
+    while(used.has(k))k=b+'_'+(i++);
+    used.add(k); node[name]=k; back[k]=name; return k;
+  };
+  const L=['* MOSbius schematic (generated)', MODELCARDS, `vchip vdd 0 ${nf(SIM.vdd)}`];
+  const devMap={}, srcs=[], probes={};
+  comps.forEach(c=>{
+    const k=c.key;
+    if(k==='vsrc'||k==='isrc'){
+      const a=pinNet(c,'p'), b=pinNet(c,'n');
+      if(!a){warn.push(`${c.nm} has an unconnected + terminal, left out`);return}
+      if(!b)warn.push(`${c.nm}: − terminal not connected, treated as ground`);
+      L.push(`${c.nm} ${sn(a)} ${b?sn(b):'0'} ${srcSpice(c,ana&&ana.acSrc===c.id)}`);
+      srcs.push(c); return;
+    }
+    if(k==='lprobe'){
+      const a=pinNet(c,'a'), b=pinNet(c,'b');
+      if(!a||!b){warn.push(`${c.nm} has an open end, left out`);return}
+      const na=sn(a), nb=sn(b);
+      if(na===nb){warn.push(`${c.nm} is shorted (both ends on one net), left out`);return}
+      const inj=ana&&ana.loop===c.id?ana.inj:null;
+      L.push(`vlp${c.id} ${na} ${nb} dc 0${inj==='v'?' ac 1':''}`);
+      if(inj==='i')L.push(`ilp${c.id} 0 ${na} dc 0 ac 1`);
+      probes[c.id]={a:na,b:nb}; return;
+    }
+    if(k==='res'||k==='cap'||k==='ind'){
+      const a=pinNet(c,'a'), b=pinNet(c,'b');
+      if(!a||!b){warn.push(`${c.nm} has an open end, left out`);return}
+      const val=pv(sp(c,{res:'r',cap:'c',ind:'l'}[k]));
+      L.push(`${c.nm} ${sn(a)} ${sn(b)} ${nf(k==='res'?Math.max(val,1e-3):val)}`); return;
+    }
+    const sd=SIMDEV[k]; if(!sd)return;
+    const bulkPin=BY[k].pins.find(p=>p.nm==='substrate'||p.nm==='nwell');
+    sd.forEach((d,di)=>{
+      const rs=x=>x==='#GND'?'0':x==='#VDD'?'vdd':x[0]==='$'
+        ?(()=>{const q=('x'+c.id+'_'+x.slice(1)).toLowerCase(); back[q]=instName(c)+'.'+x.slice(1); return q})()
+        :(pinNet(c,x)?sn(pinNet(c,x)):null);
+      const g=rs(d.g), dr=rs(d.d), so=rs(d.s);
+      if(!dr)return;                         // unused mirror output: no current path, drop it
+      if(!g||!so){warn.push(`${instName(c)} ${d.nm||''}: unconnected ${!g?'gate':'source'}, left out`);return}
+      const bn=bulkPin&&pinNet(c,bulkPin.nm)?sn(pinNet(c,bulkPin.nm)):(d.t==='n'?'0':'vdd');
+      const nm=`m${c.id}_${di}`;
+      L.push(`${nm} ${dr} ${g} ${so} ${bn} mos${d.t} ${UNITDEV[d.t]} m=${d.M}`);
+      devMap[nm]={cid:c.id,nm:d.nm||'',t:d.t,g,d:dr,s:so};
     });
+  });
+  if(SIM.cpadOn){
+    const pads={};
+    N.forEach(n=>{const k=sn(canon(n)); if(k==='0'||k==='vdd')return;
+      (pads[k]=pads[k]||new Set()); n.onchip.forEach(m=>pads[k].add(m.pcb))});
+    Object.entries(pads).forEach(([k,set])=>{if(set.size)L.push(`cpad_${k} ${k} 0 ${nf(pv(SIM.cpad)*set.size)}`)});
+  }
+  return {L,devMap,back,warn,srcs,sn,node,probes};
+}
+function analysisLines(ana,ctx){
+  const out=[], src=id=>comps.find(c=>c.id===+id);
+  if(ana.kind==='op'){
+    out.push('.save all '+Object.keys(ctx.devMap).map(m=>
+      ['id','gm','gds','vth','vdsat'].map(p=>`@${m}[${p}]`).join(' ')).join(' '));
+    out.push('.op');
+  } else if(ana.kind==='dc'){
+    const c=src(SIM.dc.src); if(!c)throw new Error('pick a source to sweep');
+    const a=pv(SIM.dc.from), b=pv(SIM.dc.to); let st=Math.abs(pv(SIM.dc.step))||Math.abs(b-a)/100;
+    if(Math.abs(b-a)/st>5000)st=Math.abs(b-a)/5000;
+    let line=`.dc ${c.nm} ${nf(a)} ${nf(b)} ${nf(b<a?-st:st)}`;
+    ana.n1=Math.round(Math.abs(b-a)/st)+1;
+    if(SIM.dc.step2On){
+      const c2=src(SIM.dc.src2); if(!c2||c2===c)throw new Error('pick a different second source to step');
+      const a2=pv(SIM.dc.from2), b2=pv(SIM.dc.to2), s2=Math.abs(pv(SIM.dc.step2))||Math.abs(b2-a2);
+      line+=` ${c2.nm} ${nf(a2)} ${nf(b2)} ${nf(b2<a2?-s2:s2)}`;
+      ana.steps=[];for(let i=0;i<=Math.round(Math.abs(b2-a2)/s2+1e-9);i++)ana.steps.push(a2+(b2<a2?-1:1)*i*s2);
+      ana.stepName=c2.nm; ana.stepU=srcU(c2);
+    }
+    ana.xname=c.nm; ana.xunit=srcU(c);
+    out.push(line);
+  } else if(ana.kind==='ac'){
+    const f1=pv(SIM.ac.f1)||1, f2=pv(SIM.ac.f2)||1e8, ppd=Math.max(1,Math.round(pv(SIM.ac.ppd)||20));
+    out.push(`.ac dec ${ppd} ${nf(f1)} ${nf(f2)}`);
+  } else {
+    const ts=pv(SIM.tran.tstop); if(!(ts>0))throw new Error('set a stop time');
+    const t0=Math.max(0,Math.min(pv(SIM.tran.tstart)||0,ts*0.99));
+    if(SIM.tran.icNode&&SIM.tran.icV!==''){
+      const nn=nets().find(n=>n.name===SIM.tran.icNode);
+      if(nn)out.push(`.ic v(${ctx.sn(nn.name)})=${nf(SIM.tran.icV)}`);
+    }
+    out.push(`.tran ${nf((ts-t0)/1000)} ${nf(ts)} ${nf(t0)}`);
   }
   return out;
 }
-const SRCLIST=()=>comps.filter(c=>['vdc','vpulse','vsin','idc'].includes(c.key))
-  .map(c=>({id:c.id,label:(BY[c.key].n)+' #'+c.id+(c.key==='idc'?' (current)':''),kind:c.key==='idc'?'i':'v'}));
 
-function simSetup(){
-  const ct=buildCircuit();
-  const srcs=SRCLIST();
-  if(simCfg.dc.srcId===null&&srcs.length)simCfg.dc.srcId=srcs[0].id;
-  if(simCfg.ac.srcId===null){const v=srcs.find(s=>s.kind==='v');if(v)simCfg.ac.srcId=v.id}
-
-  /* Basic analyses are always visible; the advanced two (DC sweep, AC / Bode)
-     appear only when "Adv" is on, so a beginner isn't faced with all four. */
-  const basicTypes=[['op','Op'],['tran','Tran']];
-  const advTypes=[['dc','DC'],['ac','AC']];
-  const shownTypes=simAdv?basicTypes.concat(advTypes):basicTypes;
-  document.getElementById('anaBox').innerHTML=
-    `<div style="padding:2px 12px 8px;display:flex;align-items:center;gap:6px">
-      <span class="seg" id="anaType" style="flex:1">
-      ${shownTypes.map(([k,l])=>
-        `<button type="button" data-an="${k}"${anaType===k?' class="on"':''}>${l}</button>`).join('')}
-      </span>
-      <button type="button" id="advToggle" class="${simAdv?'on':''}" style="flex:0 0 auto;padding:6px 9px"
-        title="Show the advanced analyses: DC sweep and AC / Bode">Adv</button>
-     </div>`+anaFields(srcs);
-
-  /* stimulus: only the sources the analysis does not itself drive */
-  const driven = anaType==='dc' ? [simCfg.dc.srcId, simCfg.dc.stepOn?simCfg.dc.stepSrc:null]
-               : anaType==='ac' ? [simCfg.ac.srcId] : [];
-  const stim=comps.filter(c=>PDEF[c.key]&&['vpulse','vdc','vsin','idc'].includes(c.key)
-                              &&!driven.includes(c.id));
-  document.getElementById('stimBox').innerHTML= stim.length? stim.map(c=>{
-    const ks=Object.keys(PDEF[c.key]);
-    return `<div style="padding:2px 12px 4px;font-family:var(--mono);font-size:10px;color:var(--accent)">${BY[c.key].n} #${c.id}</div>`+
-      ks.map(k=>`<div class="frow"><label>${PLBL[k]}</label>
-        <input data-src="${c.id}" data-k="${k}" value="${(c.props&&c.props[k])??PDEF[c.key][k]}"></div>`).join('');
-  }).join('') : `<div style="padding:4px 12px 8px;font-size:11px;color:var(--dim)">No free sources.</div>`;
-
-  /* signals */
-  const sigs=signalList(ct);
-  sigs.forEach(s=>{if(probe[s.k]===undefined)probe[s.k]=false});
-  const nProbed=sigs.filter(s=>probe[s.k]).length;
-  const rowsHtml=sigs.map((s,i)=>
-    `<div class="frow sw" data-probe="${s.k}"><span class="chip" style="background:${
-      probe[s.k]?TRC[i%TRC.length]:'#2A3541'}"></span><label>${s.label}</label></div>`).join('');
-  document.getElementById('probeBox').innerHTML =
-    anaType==='op'
-      ? `<div style="padding:4px 12px 8px;font-size:11px;color:var(--dim)">The operating point
-         annotates the schematic directly \u2014 close this window to read it.</div>`
-    : !sigs.length
-      ? `<div style="padding:4px 12px 8px;font-size:11px;color:var(--dim)">Nothing to probe.</div>`
-    : nProbed
-      ? rowsHtml
-      : `<div style="padding:4px 12px 10px;font-size:11px;color:#D6A653;line-height:1.6">
-           Nothing probed yet. Press <b>Probe nets</b>, click the nets you want on the
-           schematic, then <b>esc</b> to come back \u2014 or tick them here.</div>`+rowsHtml;
-
-  const nm=ct.devs.filter(d=>d.kind==='m').length;
-  document.getElementById('simstat').textContent=
-    `${nm} transistors · ${ct.free.length} unknown nodes`+(ct.warn.length?`  ⚠ ${ct.warn[0]}`:'');
-  document.querySelector('#sim .brand').textContent='MAESTRO — '+
-    ({op:'operating point',dc:'DC sweep',ac:'AC / Bode',tran:'transient'}[anaType]);
-}
-function anaFields(srcs){
-  const opt=(sel,kind)=>srcs.filter(s=>!kind||true).map(s=>
-    `<option value="${s.id}"${s.id==sel?' selected':''}>${s.label}</option>`).join('');
-  if(anaType==='op')
-    return `<div style="padding:4px 12px 10px;font-size:11px;color:var(--dim);line-height:1.6">
-      Solves the DC bias and writes Id, Vgs, Vov, gm, ro, gm·ro and the region beside
-      every transistor on the schematic.</div>`;
-  if(anaType==='tran'){
-    const nn=(buildCircuit().N||[]).map(n=>n.name);
-    return `<div class="frow"><label>stop time</label><input id="f_tstop" value="${simCfg.tstop}"></div>
-      <div class="frow"><label>max time step</label><input id="f_hmax" value="${simCfg.hmax}"></div>
-      <div class="frow"><label>start node at</label>
-        <select id="f_icnode"><option value="">— none —</option>
-        ${nn.map(n=>`<option value="${n}"${n===simCfg.icNode?' selected':''}>${n}</option>`).join('')}</select></div>
-      ${simCfg.icNode?`<div class="frow"><label>initial volts</label><input id="f_icv" value="${simCfg.icV}"></div>`:''}
-      <div style="padding:2px 12px 8px;font-size:10.5px;color:var(--dim);line-height:1.55">
-        A latch or ring oscillator sits on its metastable DC point and will not start
-        on its own — displace one node to kick it, as <span style="font-family:var(--mono)">.ic</span> does.</div>`;
+/* ---------- run ---------- */
+async function runAnalysis(kind){
+  if(simBusy)return;
+  kind=kind||SIM.ana;
+  if(kind!=='op'&&!paneOpen())openPane();
+  const ana={kind};
+  if(kind==='ac'&&SIM.ac.mode==='loop'){
+    const c=comps.find(x=>x.id===+SIM.ac.probe&&x.key==='lprobe');
+    if(!c){simError(['Place a Loop probe in the feedback wire (Testbench \u2192 Loop probe) and pick it here.']);return}
+    ana.loop=c.id; ana.probeName=c.nm;
+  } else if(kind==='ac'){
+    const c=comps.find(x=>x.id===+SIM.ac.src&&(x.key==='vsrc'||x.key==='isrc'));
+    if(!c){simError(['Pick the AC input source (the one you are driving the circuit with).']);return}
+    ana.acSrc=c.id;
   }
-  if(anaType==='dc'){
-    const d=simCfg.dc;
-    return `<div class="frow"><label>sweep</label><select id="f_dcsrc">${opt(d.srcId)}</select></div>
-      <div class="frow"><label>from</label><input id="f_dcfrom" value="${d.from}"></div>
-      <div class="frow"><label>to</label><input id="f_dcto" value="${d.to}"></div>
-      <div class="frow"><label>points</label><input id="f_dcpts" value="${d.points}"></div>
-      <div class="frow sw" id="f_stepon"><span class="chip" style="background:${d.stepOn?'var(--accent)':'#2A3541'}"></span>
-        <label>step a second source</label></div>
-      ${d.stepOn?`<div class="frow"><label>step</label><select id="f_stsrc">${opt(d.stepSrc)}</select></div>
-      <div class="frow"><label>from</label><input id="f_stfrom" value="${d.stepFrom}"></div>
-      <div class="frow"><label>to</label><input id="f_stto" value="${d.stepTo}"></div>
-      <div class="frow"><label>curves</label><input id="f_stpts" value="${d.stepPoints}"></div>`:''}`;
-  }
-  const a=simCfg.ac;
-  return `<div class="frow"><label>drive</label><select id="f_acsrc">${opt(a.srcId)}</select></div>
-    <div class="frow"><label>start freq</label><input id="f_acf0" value="${a.fstart}"></div>
-    <div class="frow"><label>stop freq</label><input id="f_acf1" value="${a.fstop}"></div>
-    <div class="frow"><label>points</label><input id="f_acpts" value="${a.points}"></div>
-    <div class="frow sw" id="f_acph"><span class="chip" style="background:${a.phase?'var(--accent)':'#2A3541'}"></span>
-      <label>show phase</label></div>`;
-}
-document.getElementById('simsetup').addEventListener('click',e=>{
-  const t=e.target.closest('[data-an]');
-  if(t){anaType=t.dataset.an;plView=null;simSetup();plot();measPanel();return}
-  if(e.target.closest('#advToggle')){
-    simAdv=!simAdv;
-    /* turning Adv off while a now-hidden advanced analysis is selected would
-       strand the user on it, so drop back to Transient in that case */
-    if(!simAdv&&(anaType==='dc'||anaType==='ac')){anaType='tran';plView=null}
-    simSetup();plot();measPanel();return;
-  }
-  if(e.target.closest('#f_stepon')){
-    const d=simCfg.dc; d.stepOn=!d.stepOn;
-    if(d.stepOn&&d.stepSrc===null){const s=SRCLIST().find(x=>x.id!==d.srcId);d.stepSrc=s?s.id:d.srcId}
-    simSetup();return;
-  }
-  if(e.target.closest('#f_acph')){simCfg.ac.phase=!simCfg.ac.phase;simSetup();plot();return}
-  const p=e.target.closest('[data-probe]');if(!p)return;
-  probeAuto=false;probe[p.dataset.probe]=!probe[p.dataset.probe];simSetup();plot();
-});
-document.getElementById('simsetup').addEventListener('change',e=>{
-  const i=e.target, d=simCfg.dc, a=simCfg.ac;
-  const map={f_tstop:v=>simCfg.tstop=v, f_hmax:v=>simCfg.hmax=v,
-    f_icnode:v=>{simCfg.icNode=v;simSetup()}, f_icv:v=>simCfg.icV=v,
-    f_dcsrc:v=>d.srcId=+v, f_dcfrom:v=>d.from=v, f_dcto:v=>d.to=v, f_dcpts:v=>d.points=v,
-    f_stsrc:v=>d.stepSrc=+v, f_stfrom:v=>d.stepFrom=v, f_stto:v=>d.stepTo=v, f_stpts:v=>d.stepPoints=v,
-    f_acsrc:v=>a.srcId=+v, f_acf0:v=>a.fstart=v, f_acf1:v=>a.fstop=v, f_acpts:v=>a.points=v};
-  if(map[i.id]){map[i.id](i.value);return}
-  if(i.dataset.src){const c=comps.find(x=>x.id==i.dataset.src);
-    c.props=c.props||{};c.props[i.dataset.k]=i.value;}
-});
-
-function runSim(){
-  const ct=buildCircuit();
-  const nDev=ct.devs.length+ct.ress.length+ct.caps.length;
-  if(!nDev){alert('Nothing to simulate — place some devices and wire them up.');return}
-  /* Zero free nodes is NOT an error: driving both terminals of a device from
-     sources leaves nothing to solve for, which is exactly what a transistor
-     characterisation rig looks like. The devices are still evaluated. */
-  if(anaType==='ac'&&!ct.free.length){
-    alert('AC needs at least one node that is not pinned by a source — '+
-          'leave the node you want to measure free.');return}
-  const nodc=noDCPath(ct);
-  if(nodc.length){alert(dcPathAdvice(nodc,ct));return}
-  const t0=performance.now();
+  /* the one mistake ngspice explains badly: a node only a gate touches */
+  const bad=noDCPath(buildCircuit());
+  if(bad.length){simError([dcPathAdvice(bad,buildCircuit())]);return}
+  let ctx, text;
   try{
-    if(anaType==='op'){
-      const op=operatingPoint(ct);
-      opRes=op; showOp=true;
-      document.getElementById('bOp').classList.add('on');
-      simRes={kind:'op',ct,op}; render();
-    } else if(anaType==='tran'){
-      const tstop=pv(simCfg.tstop), hmax=Math.min(pv(simCfg.hmax),tstop/50);
-      const ic=simCfg.icNode?{node:simCfg.icNode,v:pv(simCfg.icV)}:null;
-      simRes={kind:'tran',ct,out:transient(ct,tstop,hmax,{ic})};
-    } else if(anaType==='dc'){
-      const d=simCfg.dc, srcs=SRCLIST();
-      const k=(id)=>{const s=srcs.find(x=>x.id===id);return s?s.kind:'v'};
-      if(d.srcId===null){alert('Place a source and pick one to sweep.');return}
-      const spec={srcId:d.srcId,kind:k(d.srcId),from:pv(d.from),to:pv(d.to),points:+d.points};
-      if(d.stepOn&&d.stepSrc!==null&&d.stepSrc!==d.srcId)
-        spec.step={srcId:d.stepSrc,kind:k(d.stepSrc),from:pv(d.stepFrom),to:pv(d.stepTo),points:+d.stepPoints};
-      simRes={kind:'dc',ct,sw:dcSweep(ct,spec),spec};
-    } else {
-      const a=simCfg.ac;
-      if(a.srcId===null){alert('AC needs a voltage source to drive.');return}
-      const out=acAnalysis(ct,{srcId:a.srcId,fstart:pv(a.fstart),fstop:pv(a.fstop),points:+a.points});
-      if(out.err){alert(out.err);return}
-      simRes={kind:'ac',ct,out};
+    ctx=spiceNetlist(ana);
+    if(!Object.keys(ctx.devMap).length&&!ctx.srcs.length){simError(['Nothing to simulate yet — place devices and sources.']);return}
+    text=ctx.L.concat(analysisLines(ana,ctx),['.end']).join('\n');
+  }catch(e){simError([e.message]);return}
+  simBusy=true; setStat(engineP?'running…':'loading ngspice (first run only)…');
+  let r, eng, rI;
+  try{
+    eng=await loadEngine(); setStat('running…');
+    const t0=performance.now();
+    if(ana.loop){
+      /* Tian's method: once with a test voltage, once with a test current */
+      ana.inj='v'; text=spiceNetlist(ana).L.concat(analysisLines(ana,ctx),['.end']).join('\n');
+      eng.setNetList(text); r=await eng.runSim();
+      ana.inj='i'; const t2=spiceNetlist(ana).L.concat(analysisLines(ana,ctx),['.end']).join('\n');
+      eng.setNetList(t2); rI=await eng.runSim();
+      text+='\n\n* second run (current injection):\n'+t2;
+    } else { eng.setNetList(text); r=await eng.runSim(); }
+    ana.ms=Math.round(performance.now()-t0);
+  }catch(e){simBusy=false;simError([e.message]);return}
+  simBusy=false;
+  const errs=eng.getError().filter(x=>/error|singular|not parsed|interrupted|abort|fail|too small|no convergence/i.test(x));
+  if(!r||!r.data||!r.data.length||(errs.length&&!r.numPoints)){
+    simError((errs.length?errs:['ngspice returned no data.']).concat(['','(the netlist is under "Netlist")']),text);return}
+  try{ const res=ana.loop?loopResult(r,rI,ana,ctx):parseResult(r,ana,ctx); res.netlist=text; res.warn=ctx.warn.concat(errs);
+    simRes=res;
+    if(res.kind==='op'){opRes=res.op; showOp=true; document.getElementById('bOp').classList.add('on'); renderOp()}
+    else autoProbe();
+  }catch(e){simError(['Could not read the result: '+e.message],text);return}
+  setStat(`${ana.loop?'loop gain at '+ana.probeName:{op:'operating point',dc:'DC sweep',ac:'AC',tran:'transient'}[kind]} · ngspice · ${ana.ms} ms`+
+    (simRes.flipped?' · probe was reversed, corrected':'')+
+    (simRes.warn.length?` · ⚠ ${simRes.warn.length}`:''));
+  drawPaneAll(); render();
+}
+function simError(lines,netlist){
+  simRes={kind:SIM.ana,err:lines,netlist:netlist||''};
+  if(!paneOpen())openPane();
+  setStat('✖ did not run'); drawPaneAll();
+}
+
+/* ngspice vectors -> plottable series, labelled with the schematic's names */
+function parseResult(r,ana,ctx){
+  const D={}; r.data.forEach(d=>D[d.name.toLowerCase()]=d.values);
+  const srcByLower={}; ctx.srcs.forEach(c=>srcByLower[c.nm.toLowerCase()]=c);
+  const out={kind:ana.kind, series:[]};
+  const sig=[];
+  Object.keys(D).forEach(n=>{
+    let m=n.match(/^v\((.+)\)$/);
+    if(m&&m[1]!=='v-sweep'&&ctx.back[m[1]]!==undefined){
+      const nm=ctx.back[m[1]]; if(m[1]==='vdd')return;
+      sig.push({key:'V:'+nm,label:nm,unit:'V',vals:D[n],internal:m[1][0]==='x'}); return}
+    m=n.match(/^i\((.+)\)$/);
+    if(m){
+      if(m[1]==='vchip')sig.push({key:'I:chip',label:'I(chip supply)',unit:'A',vals:D[n],neg:true});
+      else if(srcByLower[m[1]])sig.push({key:'I:'+srcByLower[m[1]].nm,label:'I('+srcByLower[m[1]].nm+')',unit:'A',vals:D[n],neg:true});
     }
-  }catch(err){ alert('Solver failed: '+err.message); return; }
-  const ms=(performance.now()-t0).toFixed(0);
-  plView=null;
-  if(anaType!=='op'&&!signalList(ct).some(s=>probe[s.k]))
-    toast('nothing probed \u2014 press "Probe nets", click the nets you want, then Run');
-  const nm=ct.devs.filter(d=>d.kind==='m').length;
-  let extra='';
-  if(simRes.kind==='tran')extra=`${simRes.out.t.length} points`;
-  if(simRes.kind==='dc')  extra=`${simRes.sw.runs.length}×${simRes.sw.runs[0].x.length} points`+
-    (simRes.sw.runs.some(r=>r.bad)?` · ⚠ ${simRes.sw.runs.reduce((a,r)=>a+r.bad,0)} did not converge`:'');
-  if(simRes.kind==='ac') extra=`${simRes.out.f.length} frequencies`;
-  if(simRes.kind==='op') extra=`${simRes.op.mos.filter(d=>d.region==='saturation').length}/${nm} in saturation`;
-  document.getElementById('simstat').textContent=
-    `${nm} transistors · ${ct.free.length} unknowns · ${extra} · ${ms} ms`;
-  simSetup(); plot(); measPanel();
-}
-/* pick sensible traces when the user has not chosen any */
-function autoProbe(){
-  const ct=simRes.ct, sigs=signalList(ct);
-  const swings={};
-  sigs.filter(s=>s.kind==='v').forEach(s=>{
-    const y=seriesFor(s); if(!y)return;
-    swings[s.k]=Math.max(...y.flat())-Math.min(...y.flat());
   });
-  const any=Object.values(swings).some(v=>v>0.05);
-  sigs.forEach(s=>probe[s.k]= s.kind==='v' && (!any || swings[s.k]>0.05));
-}
-/* y values for one signal, as an array of arrays (one per DC family curve) */
-function seriesFor(s){
-  if(!simRes)return null;
-  if(simRes.kind==='tran')return s.kind==='v'?[simRes.out.v[s.node]]:null;
-  if(simRes.kind==='ac')  return s.kind==='v'?[simRes.out.v[s.node].map(c=>dB(c))]:null;
-  if(simRes.kind==='dc'){
-    if(s.kind==='v')return simRes.sw.runs.map(r=>r.V.map(V=>V[s.node]));
-    return simRes.sw.runs.map(r=>r.dev.map(row=>row[s.di]?row[s.di][s.param]:0));
+  if(ana.kind==='op'){
+    const V={}; sig.forEach(s=>{if(s.unit==='V')V[s.label]=s.vals[0]});
+    const g=(m,p)=>{const k=Object.keys(D).find(x=>x.includes(`@${m}[${p}]`)); return k?D[k][0]:NaN};
+    const nodeV=x=>x==='0'?0:x==='vdd'?pv(SIM.vdd):(D[`v(${x})`]||[NaN])[0];
+    const byComp={}, mos=[];
+    Object.entries(ctx.devMap).forEach(([m,d])=>{
+      const pol=d.t==='n'?1:-1, Vg=nodeV(d.g),Vd=nodeV(d.d),Vs=nodeV(d.s);
+      const Id=Math.abs(g(m,'id')), gm=Math.abs(g(m,'gm')), gds=Math.abs(g(m,'gds'));
+      const Vgs=pol*(Vg-Vs), Vds=pol*(Vd-Vs), Vth=Math.abs(g(m,'vth')), Vdsat=Math.abs(g(m,'vdsat'));
+      const Vov=Vgs-Vth, ro=gds>1e-15?1/gds:Infinity;
+      const region=Vov<-0.1?'cutoff':Vov<0?'subthreshold':Vds<Vdsat?'triode':'saturation';
+      const rec={cid:d.cid,nm:d.nm,Id,gm,gds,ro,gain:gm*ro,gmid:Id>1e-15?gm/Id:0,Vgs,Vds,Vov,Vdsat,Vth,region};
+      (byComp[d.cid]=byComp[d.cid]||[]).push(rec); mos.push(rec);
+    });
+    const Isup=D['i(vchip)']?-D['i(vchip)'][0]:NaN;
+    out.op={V,byComp,mos,conv:true,Isup};
+    out.nodes=sig.filter(s=>s.unit==='V'&&!s.internal).map(s=>[s.label,s.vals[0]])
+      .concat(sig.filter(s=>s.internal).map(s=>[s.label,s.vals[0]]));
+    out.currents=sig.filter(s=>s.unit==='A').map(s=>[s.label,-s.vals[0]]);
+    return out;
   }
-  return null;
-}
-function measPanel(){
-  const box=document.getElementById('measBox');
-  if(!simRes){box.innerHTML='';return}
-  const line=(a,b)=>`<div class="mline"><span>${a}</span><span>${b}</span></div>`;
-  if(simRes.kind==='op'){
-    box.innerHTML=simRes.op.mos.map(d=>
-      line(d.key+(d.nm?' · '+d.nm:''),`${fv(d.Id,'A')} · gm ${fv(d.gm,'S')} · ro ${fv(d.ro,'Ω')} · ${d.region}`)).join('');
-    return;
+  if(ana.kind==='ac'){
+    out.x=(D['frequency']||[]).map(v=>typeof v==='object'?v.real:v);
+    out.xname='frequency'; out.xunit='Hz'; out.log=true;
+    const ci=ctx.srcs.find(c=>c.id===ana.acSrc); if(ci){const n=nets().find(n=>n.keys.includes(pinKey(ci,0)));if(n)out.inNet=n.name}
+    sig.forEach(s=>{const c=s.vals.map(v=>typeof v==='object'?v:{real:v,img:0});
+      const sg=s.neg?-1:1;
+      out.series.push({key:s.key,label:s.label,unit:s.unit,
+        y:c.map(v=>20*Math.log10(Math.max(1e-30,Math.hypot(v.real,v.img)))),
+        ph:unwrap(c.map(v=>Math.atan2(sg*v.img,sg*v.real)*180/Math.PI))})});
+    return out;
   }
+  const X=ana.kind==='tran'?D['time']:(D['v(v-sweep)']||D['i(i-sweep)']||r.data[0].values);
+  out.x=X; out.xname=ana.kind==='tran'?'time':ana.xname; out.xunit=ana.kind==='tran'?'s':ana.xunit;
+  if(ana.kind==='dc'&&ana.steps){
+    /* nested sweep: ngspice concatenates one inner sweep per outer step */
+    const n1=ana.n1; out.x=X.slice(0,n1);
+    sig.forEach(s=>ana.steps.forEach((st,i)=>{
+      const y=s.vals.slice(i*n1,(i+1)*n1).map(v=>s.neg?-v:v); if(y.length<2)return;
+      out.series.push({key:s.key,label:s.label,unit:s.unit,y,fam:`${ana.stepName}=${fv(st,ana.stepU)}`,famI:i})}));
+  } else sig.forEach(s=>out.series.push({key:s.key,label:s.label,unit:s.unit,y:s.vals.map(v=>s.neg?-v:v)}));
+  return out;
+}
+/* Loop gain by Tian's method (Tian, Kripke et al., 2001), as Middlebrook's two
+   ratios combined. Probe = 0 V source from a to b, test current injected into a.
+     voltage run:  Tv = -v(b)/v(a)
+     current run:  Ti =  i / (1 - i)      (i = current through the probe, a -> b)
+     T = (Tv*Ti - 1) / (Tv + Ti + 2)
+   This is exact, loading included, when a faces the amplifier input. With the
+   probe the other way round the same arithmetic gives -T/(1+2T), which lands in
+   (-0.5, 0) at low frequency for any negative-feedback loop; that mapping is its
+   own inverse, so it is detected and undone.
+   Checked against a VCVS loop with a known answer: 20.000 loaded, 33.333 unloaded,
+   both probe directions, and the expected single-pole roll-off. */
+function loopResult(rV,rI,ana,ctx){
+  const pr=ctx.probes[ana.loop]; if(!pr)throw new Error('the loop probe is not connected on both ends');
+  const vec=(r,n)=>{const d=r.data.find(x=>x.name.toLowerCase()===n); if(!d)return null;
+    return d.values.map(v=>typeof v==='object'?v:{real:v,img:0})};
+  const zero=rV.data[0].values.map(()=>({real:0,img:0}));
+  const va=pr.a==='0'?zero:vec(rV,`v(${pr.a})`), vb=pr.b==='0'?zero:vec(rV,`v(${pr.b})`), ii=vec(rI,`i(vlp${ana.loop})`);
+  if(!va||!vb||!ii)throw new Error('ngspice did not return the probe signals');
+  const mul=(a,b)=>({real:a.real*b.real-a.img*b.img,img:a.real*b.img+a.img*b.real}),
+    add=(a,b)=>({real:a.real+b.real,img:a.img+b.img}), sub=(a,b)=>({real:a.real-b.real,img:a.img-b.img}),
+    div=(a,b)=>{const d=b.real*b.real+b.img*b.img||1e-300;return {real:(a.real*b.real+a.img*b.img)/d,img:(a.img*b.real-a.real*b.img)/d}},
+    neg=a=>({real:-a.real,img:-a.img}), one={real:1,img:0}, two={real:2,img:0};
+  let T=va.map((_,k)=>{const Tv=neg(div(vb[k],va[k])), Ti=div(ii[k],sub(one,ii[k]));
+    return div(sub(mul(Tv,Ti),one),add(add(Tv,Ti),two))});
+  const flipped=T[0].real<0&&T[0].real>-0.5&&Math.abs(T[0].img)<0.5;
+  if(flipped)T=T.map(t=>neg(div(t,add(one,mul(two,t)))));
+  const x=(rV.data.find(d=>d.name.toLowerCase()==='frequency').values).map(v=>typeof v==='object'?v.real:v);
+  return {kind:'ac', loop:true, flipped, x, xname:'frequency', xunit:'Hz', log:true,
+    series:[{key:'L:'+ana.probeName, label:'loop gain '+ana.probeName, unit:'V', loop:true,
+      y:T.map(t=>20*Math.log10(Math.max(1e-30,Math.hypot(t.real,t.img)))),
+      ph:unwrap(T.map(t=>Math.atan2(t.img,t.real)*180/Math.PI))}]};
+}
+function unwrap(p){const o=p.slice();for(let i=1;i<o.length;i++){while(o[i]-o[i-1]>180)o[i]-=360;while(o[i]-o[i-1]<-180)o[i]+=360}return o}
+/* after a run with nothing chosen yet: show the nets the user named, else a few */
+function autoProbe(){
+  if(!simRes||!simRes.series)return;
+  const keys=[...new Set(simRes.series.map(s=>s.key))];
+  if(keys.some(k=>probe[k]))return;
+  if(simRes.loop){probe[simRes.series[0].key]=true;return}
   if(simRes.kind==='ac'){
-    const on=signalList(simRes.ct).filter(s=>s.kind==='v'&&probe[s.k]);
-    if(!on.length){box.innerHTML=`<div style="padding:4px 12px 8px;font-size:11px;color:var(--dim)">Pick a node.</div>`;return}
-    const s=on[on.length-1], v=simRes.out.v[s.node], f=simRes.out.f;
-    const mag=v.map(dB), A0=mag[0];
-    const iu=mag.findIndex(m=>m<0);
-    const i3=mag.findIndex(m=>m<A0-3.0103);
-    let h=line('measured on',s.label)+line('DC gain',A0.toFixed(2)+' dB');
-    if(i3>0)h+=line('−3 dB',fv(f[i3],'Hz'));
-    if(iu>0){h+=line('unity gain',fv(f[iu],'Hz'));
-             h+=line('phase there',phase(v[iu]).toFixed(1)+'°');
-             h+=line('phase margin',(180+phase(v[iu])).toFixed(1)+'°');}
-    else h+=line('unity gain','not reached in range');
-    box.innerHTML=h;
-    return;
+    /* the input node reads 0 dB by definition; show the biggest other response */
+    const inNet=simRes.inNet, vs=simRes.series.filter(s=>s.key.startsWith('V:')&&!s.key.includes('.')&&s.label!==inNet);
+    const best=vs.sort((a,b)=>Math.max(...b.y)-Math.max(...a.y))[0];
+    if(best){probe[best.key]=true;return}
   }
-  if(simRes.kind==='dc'){
-    const on=signalList(simRes.ct).filter(s=>probe[s.k]);
-    if(!on.length){box.innerHTML='';return}
-    const s=on[on.length-1], ys=seriesFor(s);
-    const flat=ys.flat();
-    box.innerHTML=line('measured on',s.label)
-      +line('min',fv(Math.min(...flat),s.unit))
-      +line('max',fv(Math.max(...flat),s.unit))
-      +line('at sweep end',fv(ys[0][ys[0].length-1],s.unit));
-    return;
-  }
-  /* transient: keep the rise/fall/propagation measurements */
-  const {out,ct}=simRes, names=ct.N.map(n=>n.name);
-  const src=comps.find(c=>c.key==='vpulse');
-  let inN=null;
-  if(src){const i=BY[src.key].pins.findIndex(p=>p.nm==='p');
-    const nn=ct.N.find(n=>n.keys.includes(pinKey(src,i)));if(nn)inN=nn.name;}
-  let outN=null,best=0;
-  names.forEach(n=>{if(n===inN)return;const y=out.v[n];
-    const sw=Math.max(...y)-Math.min(...y);if(sw>best){best=sw;outN=n}});
-  if(!inN||!outN){box.innerHTML=
-    `<div style="padding:4px 12px 8px;font-size:11px;color:var(--dim)">Needs a pulse source and an output net.</div>`;return}
-  const m=measure(out.t,out.v[inN],out.v[outN]);
-  box.innerHTML= m? Object.entries(m).map(([k,v])=>
-    line(k,fv(v,/V/.test(k)||/swing/.test(k)?'V':'s'))).join('')+line('measured on',outN)
-    :`<div style="padding:4px 12px 8px;font-size:11px;color:var(--dim)">Output did not switch.</div>`;
+  const named=keys.filter(k=>k.startsWith('V:')&&!/^V:net\d+$/.test(k)&&!k.includes('.'));
+  (named.length?named:keys.filter(k=>k.startsWith('V:')&&!k.includes('.'))).slice(0,4).forEach(k=>probe[k]=true);
 }
 
 /* ==========================================================================
-   Plot. One renderer for all analyses: it is handed an X axis (linear time,
-   linear sweep value, or log frequency) and a set of traces.
+   The pane: settings and signal list on the left, plot on the right.
    ========================================================================== */
-function plotModel(){
-  if(!simRes||simRes.kind==='op')return null;
-  const all=signalList(simRes.ct);
-  const sigs=all.filter(s=>probe[s.k]);
-  /* colour index must be found by key: signalList() rebuilds its objects on
-     every call, so indexOf() across two separate calls never matches and every
-     trace came out with stroke="undefined" */
-  const ci=s=>all.findIndex(a=>a.k===s.k);
-  const traces=[];
-  if(simRes.kind==='tran'){
-    sigs.forEach(s=>{const y=seriesFor(s);if(y)traces.push({label:s.label,y:y[0],ci:ci(s)})});
-    return {x:simRes.out.t,xlabel:'s',xlog:false,ylabel:'V',traces};
-  }
-  if(simRes.kind==='ac'){
-    sigs.forEach(s=>{const y=seriesFor(s);if(y)traces.push({label:s.label,y:y[0],ci:ci(s)})});
-    const m={x:simRes.out.f,xlabel:'Hz',xlog:true,ylabel:'dB',traces};
-    if(simCfg.ac.phase&&sigs.length)
-      m.phase={y:simRes.out.v[sigs[sigs.length-1].node].map(phase),label:sigs[sigs.length-1].label};
-    return m;
-  }
-  const runs=simRes.sw.runs;
-  const su=simRes.spec.step?(simRes.spec.step.kind==='i'?'A':'V'):'';
-  /* In a family the interesting axis is the step, so colour tracks the step and
-     the dash pattern separates one probed signal from another. */
-  sigs.forEach((s,si)=>{
-    const ys=seriesFor(s); if(!ys)return;
-    ys.forEach((y,ri)=>traces.push({
-      label:s.label+(runs.length>1?`  [${fv(runs[ri].step,su)}]`:''),
-      y, ci: runs.length>1?ri:ci(s), dash: runs.length>1?si:0}));
-  });
-  const unit=sigs.length?sigs[sigs.length-1].unit:'';
-  return {x:runs[0].x,xlabel:simRes.spec.kind==='i'?'A':'V',xlog:false,ylabel:unit,traces};
+const paneOpen=()=>document.getElementById('simpane').classList.contains('open');
+function openPane(){
+  const p=document.getElementById('simpane'); p.classList.add('open');
+  document.getElementById('bSim').classList.add('on');
+  loadEngine().catch(()=>{});             // warm up while the user sets things
+  drawPaneAll(); requestAnimationFrame(()=>{render();drawPlot()});
 }
-function plot(){
-  const sv=document.getElementById('pl');
-  const hint=document.getElementById('plhint');
-  const M=plotModel();
-  if(!M||!M.traces.length){
-    sv.innerHTML=''; hint.textContent= simRes&&simRes.kind==='op'
-      ? 'operating point is annotated on the schematic' : '';
+function closePane(){
+  const p=document.getElementById('simpane'); p.classList.remove('open','max');
+  document.getElementById('bSim').classList.remove('on');
+  if(mode==='probe')setMode('select');
+  requestAnimationFrame(render);
+}
+const setStat=t=>{document.getElementById('spStat').textContent=t};
+const srcOptions=(sel,onlyAC)=>comps.filter(c=>c.key==='vsrc'||c.key==='isrc')
+  .map(c=>`<option value="${c.id}"${+sel===c.id?' selected':''}>${c.nm} — ${esc(srcSummary(c))}</option>`).join('');
+function fld(path,label,unit,w){
+  const [a,b]=path.split('.'), v=b?SIM[a][b]:SIM[a];
+  return `<div class="frow"><label>${label}</label><input data-sf="${path}" value="${esc(v)}"${w?` style="width:${w}px"`:''}><span class="u">${unit||''}</span></div>`;
+}
+function drawSettings(){
+  const a=SIM.ana;
+  document.querySelectorAll('#spAna button').forEach(b=>b.classList.toggle('on',b.dataset.an===a));
+  const srcs=comps.filter(c=>c.key==='vsrc'||c.key==='isrc');
+  if(a==='dc'&&!srcs.some(c=>c.id===+SIM.dc.src))SIM.dc.src=srcs[0]?srcs[0].id:null;
+  if(a==='ac'&&!srcs.some(c=>c.id===+SIM.ac.src)){const s=srcs.find(c=>sp(c,'mode')==='sin')||srcs[0];SIM.ac.src=s?s.id:null}
+  const none=`<div class="spnote">Place a voltage or current source first (Testbench in the part list).</div>`;
+  let h='';
+  if(a==='op') h=`<div class="spnote">Solves the DC bias point. Each device's numbers go to the
+    <b>Operating point</b> table on the right; device names on the schematic turn
+    <span style="color:var(--good)">green</span> in saturation, <span style="color:#D6A653">amber</span> in triode,
+    grey when off. Node voltages appear here.</div>`;
+  else if(a==='dc') h=!srcs.length?none:`
+    <div class="frow"><label>sweep</label><select data-sf="dc.src">${srcOptions(SIM.dc.src)}</select></div>
+    ${fld('dc.from','from',srcUnitOf(SIM.dc.src))}${fld('dc.to','to',srcUnitOf(SIM.dc.src))}${fld('dc.step','step',srcUnitOf(SIM.dc.src))}
+    <label class="frow sw"><input type="checkbox" data-sf="dc.step2On"${SIM.dc.step2On?' checked':''}> <span>and step a second source (curve family)</span></label>
+    ${SIM.dc.step2On?`<div class="frow"><label>step</label><select data-sf="dc.src2">${srcOptions(SIM.dc.src2)}</select></div>
+    ${fld('dc.from2','from',srcUnitOf(SIM.dc.src2))}${fld('dc.to2','to',srcUnitOf(SIM.dc.src2))}${fld('dc.step2','step',srcUnitOf(SIM.dc.src2))}`:''}`;
+  else if(a==='ac'){
+    const loop=SIM.ac.mode==='loop', lps=comps.filter(c=>c.key==='lprobe');
+    if(loop&&!lps.some(c=>c.id===+SIM.ac.probe))SIM.ac.probe=lps[0]?lps[0].id:null;
+    h=`<div class="frow"><span class="seg" id="acMode" style="flex:1">
+        <button type="button" data-acm="resp"${loop?'':' class="on"'}>Response</button>
+        <button type="button" data-acm="loop"${loop?' class="on"':''}>Loop gain</button></span></div>`+
+    (loop
+      ? (lps.length?`<div class="frow"><label>loop probe</label><select data-sf="ac.probe">${lps.map(c=>
+            `<option value="${c.id}"${+SIM.ac.probe===c.id?' selected':''}>${c.nm}</option>`).join('')}</select></div>`
+          :`<div class="spnote">Place a <b>Loop probe</b> (Testbench) in the feedback wire \u2014 it is a plain wire at DC and on the chip.</div>`)
+        +`${fld('ac.f1','from','Hz')}${fld('ac.f2','to','Hz')}${fld('ac.ppd','points / decade','')}
+        <div class="spnote">Plots the gain around the loop at the probe, with DC loop gain, unity-gain frequency,
+          phase margin and gain margin. Point the probe's arrow from the output back toward the amplifier input;
+          if it is the other way round the result is corrected automatically.</div>`
+      : (!srcs.length?none:`
+        <div class="frow"><label>input source</label><select data-sf="ac.src">${srcOptions(SIM.ac.src)}</select></div>
+        ${fld('ac.f1','from','Hz')}${fld('ac.f2','to','Hz')}${fld('ac.ppd','points / decade','')}
+        <div class="spnote">The input gets a 1 V (or 1 A) small signal, so each trace reads directly as gain from the input. Its DC value still sets the bias.
+          This is the closed-loop response; for stability (phase margin) use <b>Loop gain</b>.</div>`));
+  }
+  else h=`${fld('tran.tstop','stop time','s')}
+    <details class="spmore"${SIM.tran.tstart!=='0'||SIM.tran.icNode?' open':''}><summary>more</summary>
+      ${fld('tran.tstart','start plotting at','s')}
+      <div class="frow"><label>start node</label><select data-sf="tran.icNode"><option value="">—</option>
+        ${nets().map(n=>`<option${n.name===SIM.tran.icNode?' selected':''}>${esc(n.name)}</option>`).join('')}</select></div>
+      ${fld('tran.icV','… at','V')}
+      <div class="spnote">A start node kicks circuits that would otherwise sit still, such as a ring oscillator.</div>
+    </details>
+    <div class="spnote">Time steps are chosen automatically.</div>`;
+  document.getElementById('spSet').innerHTML=h;
+  document.getElementById('spModel').innerHTML=`
+    ${fld('vdd','chip supply','V')}
+    <label class="frow sw"><input type="checkbox" data-sf="cpadOn"${SIM.cpadOn?' checked':''}> <span>pad + board capacitance</span></label>
+    ${SIM.cpadOn?fld('cpad','… per pad','F'):''}
+    <div class="spnote">ngspice with BSIM3 models fitted to measurements of this chip. DC and gain are
+      close; speed depends on the pad capacitance, which is an estimate.</div>`;
+}
+const srcUnitOf=id=>{const c=comps.find(x=>x.id===+id);return c?srcU(c):''};
+function drawSignals(){
+  const box=document.getElementById('spSig');
+  if(!simRes||simRes.err||simRes.kind==='op'){box.innerHTML=`<div class="spnote">${simRes&&simRes.kind==='op'?'—':'Run once, then tick what to show. Or <b>Probe</b> and click wires on the schematic.'}</div>`;return}
+  const keys=[...new Set(simRes.series.map(s=>s.key))];
+  const col=colorMap();
+  box.innerHTML=keys.map(k=>{
+    const s=simRes.series.find(x=>x.key===k), on=!!probe[k];
+    return `<label class="sig${on?' on':''}"><input type="checkbox" data-sig="${esc(k)}"${on?' checked':''}>
+      <span class="chip" style="background:${on?col[k]:'transparent'};border:1px solid ${col[k]}"></span>
+      <span class="nm">${esc(s.label)}</span><span class="ms">${on?esc(measure1(s)):''}</span></label>`}).join('');
+}
+function colorMap(){const m={};let i=0;
+  if(simRes&&simRes.series)[...new Set(simRes.series.map(s=>s.key))].forEach(k=>{if(probe[k])m[k]=TRC[i++%TRC.length]});
+  if(simRes&&simRes.series)simRes.series.forEach(s=>{if(!m[s.key])m[s.key]='#3D4956'});
+  return m}
+/* one-line measurement for a trace */
+function measure1(s){
+  const x=simRes.x,y=s.y; if(!y||!y.length)return '';
+  if(simRes.kind==='ac'){
+    const g0=y[0], i3=y.findIndex(v=>v<g0-3), iu=y.findIndex((v,i)=>i>0&&y[i-1]>=0&&v<0);
+    /* crossing frequency, interpolated on the log axis between the two samples */
+    const xc=(i,lvl)=>{const a=Math.log10(x[i-1]),b=Math.log10(x[i]),f=(lvl-y[i-1])/(y[i]-y[i-1]||1);return Math.pow(10,a+f*(b-a))};
+    let t=`${g0.toFixed(1)} dB`;
+    if(i3>0)t+=` · −3dB ${fv(xc(i3,g0-3),'Hz')}`;
+    if(s.loop){
+      t=`DC ${g0.toFixed(1)} dB`;
+      if(iu>0&&g0>0){const fu=xc(iu,0);t+=` · UGF ${fv(fu,'Hz')} · PM ${(180+interpAt(x,s.ph,fu,true)).toFixed(0)}°`}
+      else if(g0<=0)t+=' · never above 0 dB';
+      const ip=s.ph.findIndex((v,i)=>i>0&&s.ph[i-1]>-180&&v<=-180);
+      if(ip>0)t+=` · GM ${(-interpAt(x,y,x[ip],true)).toFixed(1)} dB`;
+    }
+    return t;
+  }
+  const mn=Math.min(...y), mx=Math.max(...y);
+  if(simRes.kind==='tran'){
+    const avg=y.reduce((a,b)=>a+b,0)/y.length; let cr=[];
+    for(let i=1;i<y.length;i++)if(y[i-1]<avg&&y[i]>=avg)cr.push(x[i]);
+    const f=cr.length>2?(cr.length-1)/(cr[cr.length-1]-cr[0]):0;
+    return `${fv(mx-mn,s.unit)}pp`+(f&&mx-mn>1e-3*Math.max(1,Math.abs(avg))?` · ${fv(f,'Hz')}`:'');
+  }
+  return s.fam?s.fam:`${fv(mn,s.unit)} … ${fv(mx,s.unit)}`;
+}
+function drawPaneAll(){ if(!paneOpen())return; drawSettings(); drawSignals(); drawPlot(); }
+
+/* ---------- plot ---------- */
+let plv=null, plHover=null, plHoverY=null;
+function drawPlot(){
+  const sv=document.getElementById('pl'), msg=document.getElementById('plmsg');
+  const W=sv.clientWidth||600, H=sv.clientHeight||260;
+  msg.innerHTML=''; sv.innerHTML='';
+  if(!simRes){msg.innerHTML=`<div class="plempty">Choose an analysis on the left and press <b>Run</b> (F5).</div>`;return}
+  if(simRes.err){msg.innerHTML=`<div class="plerr">${simRes.err.map(esc).join('<br>')}</div>`;return}
+  if(simRes.kind==='op'){
+    const r=simRes; msg.innerHTML=`<div class="optab">
+      <div class="oph">Node voltages</div>${r.nodes.map(([n,v])=>`<div><span>${esc(n)}</span><b>${fv(v,'V')}</b></div>`).join('')}
+      <div class="oph">Supply</div><div><span>chip current</span><b>${fv(r.op.Isup,'A')}</b></div>
+      <div><span>chip power</span><b>${fv(r.op.Isup*pv(SIM.vdd),'W')}</b></div>
+      ${r.currents.filter(c=>c[0]!=='I(chip supply)').map(([n,v])=>`<div><span>${esc(n)}</span><b>${fv(v,'A')}</b></div>`).join('')}
+      ${r.warn.length?`<div class="oph">Notes</div>${r.warn.map(w=>`<div class="wn">${esc(w)}</div>`).join('')}`:''}</div>`;
     return;
   }
-  const W=sv.clientWidth||900,H=sv.clientHeight||600,L=70,Rp=M.phase?58:18,Tp=18,B=42;
-  const tx=v=>M.xlog?Math.log10(Math.max(1e-300,v)):v;
-  if(!plView)plView={t0:tx(M.x[0]),t1:tx(M.x[M.x.length-1])};
-  const {t0,t1}=plView;
-  let lo=1e300,hi=-1e300;
-  M.traces.forEach(tr=>tr.y.forEach((y,i)=>{
-    const xv=tx(M.x[i]); if(xv<t0||xv>t1||!isFinite(y))return;
-    lo=Math.min(lo,y);hi=Math.max(hi,y)}));
-  if(lo>hi){lo=0;hi=1}
-  const pad=(hi-lo)*0.1||Math.abs(hi)*0.1||0.2; lo-=pad; hi+=pad;
-  const X=v=>L+(tx(v)-t0)/(t1-t0||1)*(W-L-Rp), Y=v=>Tp+(hi-v)/(hi-lo||1)*(H-Tp-B);
-  const tick=(a,b)=>{const s0=(b-a)/6,e=Math.pow(10,Math.floor(Math.log10(Math.abs(s0)||1)));
-    const m=[1,2,2.5,5,10].find(x=>x*e>=s0)||10;const st=m*e;
-    const o=[];for(let v=Math.ceil(a/st)*st;v<=b;v+=st)o.push(v);return o};
+  const on=simRes.series.filter(s=>probe[s.key]);
+  if(!on.length){msg.innerHTML=`<div class="plempty">Tick signals on the left, or press <b>Probe</b> and click wires.</div>`;return}
+  const X=simRes.x, lg=!!simRes.log, tx=v=>lg?Math.log10(Math.max(v,1e-30)):v;
+  const full=[tx(X[0]),tx(X[X.length-1])];
+  /* keep the zoom across re-runs of the same sweep; a new x range starts fresh */
+  if(!plv||plv.kind!==simRes.kind||plv.f0!==full[0]||plv.f1!==full[1])plv={kind:simRes.kind,x0:full[0],x1:full[1],f0:full[0],f1:full[1]};
+  const col=colorMap();
+  const panels=simRes.kind==='ac'?[{f:'y',u:'dB'},{f:'ph',u:'°'}]:
+    [...new Set(on.map(s=>s.unit))].map(u=>({f:'y',u}));
+  const inP=(s,P)=>simRes.kind==='ac'||s.unit===P.u;
+  const Lm=62,Rm=14,Tm=10,Bm=26, gap=12, ph=(H-Tm-Bm-gap*(panels.length-1))/panels.length;
+  const X2=v=>Lm+(tx(v)-plv.x0)/(plv.x1-plv.x0||1)*(W-Lm-Rm);
   let g='';
-  tick(lo,hi).forEach(v=>{g+=`<line x1="${L}" y1="${Y(v)}" x2="${W-Rp}" y2="${Y(v)}" stroke="#1C242D"/>
-    <text x="${L-8}" y="${Y(v)+3.5}" text-anchor="end" font-family="var(--mono)" font-size="10" fill="#657483">${
-      Math.abs(v)>=1e4||(Math.abs(v)<1e-3&&v!==0)?v.toExponential(1):v.toFixed(Math.abs(v)<1?3:2)}</text>`});
-  if(M.xlog){
-    for(let d=Math.ceil(t0);d<=t1;d++){const fx=Math.pow(10,d);
-      g+=`<line x1="${X(fx)}" y1="${Tp}" x2="${X(fx)}" y2="${H-B}" stroke="#1C242D"/>
-      <text x="${X(fx)}" y="${H-B+16}" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="#657483">${fv(fx,'Hz')}</text>`}
-  } else {
-    tick(t0,t1).forEach(v=>{g+=`<line x1="${X(v)}" y1="${Tp}" x2="${X(v)}" y2="${H-B}" stroke="#1C242D"/>
-      <text x="${X(v)}" y="${H-B+16}" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="#657483">${fv(v,M.xlabel)}</text>`});
-  }
-  g+=`<rect x="${L}" y="${Tp}" width="${W-L-Rp}" height="${H-Tp-B}" fill="none" stroke="#2A3541"/>`;
-  g+=`<text x="${L-8}" y="${Tp-6}" text-anchor="end" font-family="var(--mono)" font-size="10" fill="#657483">${M.ylabel}</text>`;
-  /* phase on a right-hand axis */
-  if(M.phase){
-    const pl=-270,ph=90;
-    const PY=v=>Tp+(ph-v)/(ph-pl)*(H-Tp-B);
-    [-270,-180,-90,0,90].forEach(v=>{
-      g+=`<text x="${W-Rp+8}" y="${PY(v)+3.5}" font-family="var(--mono)" font-size="10" fill="#8A6FA8">${v}°</text>`;
-      if(v===-180)g+=`<line x1="${L}" y1="${PY(v)}" x2="${W-Rp}" y2="${PY(v)}" stroke="#3A2E4A" stroke-dasharray="4 4"/>`;
-    });
-    let d='',st=false;
-    M.x.forEach((xv,i)=>{const t=tx(xv); if(t<t0||t>t1)return;
-      d+=(st?'L':'M')+X(xv).toFixed(2)+','+PY(M.phase.y[i]).toFixed(2);st=true});
-    g+=`<path d="${d}" fill="none" stroke="#B79BE0" stroke-width="1.4" stroke-dasharray="5 3"/>`;
-    g+=`<text x="${W-Rp+8}" y="${Tp-6}" font-family="var(--mono)" font-size="10" fill="#B79BE0">phase</text>`;
-  }
-  M.traces.forEach(tr=>{
-    let d='',st=false;
-    M.x.forEach((xv,i)=>{const t=tx(xv); if(t<t0-1e-18||t>t1+1e-18)return;
-      const y=tr.y[i]; if(!isFinite(y))return;
-      d+=(st?'L':'M')+X(xv).toFixed(2)+','+Y(y).toFixed(2);st=true});
-    g+=`<path d="${d}" fill="none" stroke="${TRC[tr.ci%TRC.length]}" stroke-width="1.7"
-        stroke-linejoin="round"${tr.dash?` stroke-dasharray="${1+tr.dash*3} ${1+tr.dash*2}"`:''}/>`;
+  const i0=lowerIdx(X,plv.x0,tx), i1=Math.min(X.length-1,lowerIdx(X,plv.x1,tx)+1);
+  panels.forEach((P,pi)=>{
+    const top=Tm+pi*(ph+gap), ss=on.filter(s=>inP(s,P));
+    let lo=Infinity,hi=-Infinity;
+    ss.forEach(s=>{const y=s[P.f];if(!y)return;for(let i=i0;i<=i1&&i<y.length;i++){if(y[i]<lo)lo=y[i];if(y[i]>hi)hi=y[i]}});
+    if(!isFinite(lo)){lo=0;hi=1} if(hi-lo<1e-12){hi+=Math.max(1e-3,Math.abs(hi)*0.05);lo-=Math.max(1e-3,Math.abs(lo)*0.05)}
+    const pad=(hi-lo)*0.06; lo-=pad; hi+=pad;
+    const Y=v=>top+ph-(v-lo)/(hi-lo)*ph;
+    P.top=top;P.Y=Y;P.lo=lo;P.hi=hi;P.ph=ph;
+    g+=`<rect x="${Lm}" y="${top}" width="${W-Lm-Rm}" height="${ph}" fill="#0C1117" stroke="#1C242D"/>`;
+    niceTicks(lo,hi,Math.max(2,Math.round(ph/40))).forEach(v=>{const y=Y(v);
+      g+=`<line x1="${Lm}" x2="${W-Rm}" y1="${y}" y2="${y}" stroke="#18202A"/>
+          <text x="${Lm-6}" y="${y+3}" text-anchor="end" class="pltk">${P.f==='ph'?v.toFixed(0)+'°':P.u==='dB'?v.toFixed(0):fv(v,P.u)}</text>`});
+    const clip=`clip${pi}`;
+    g+=`<clipPath id="${clip}"><rect x="${Lm}" y="${top}" width="${W-Lm-Rm}" height="${ph}"/></clipPath><g clip-path="url(#${clip})">`;
+    const path=(y,xs)=>{let d='';const step=Math.max(1,Math.floor((i1-i0)/(W*2)));
+      for(let i=i0;i<=i1&&i<y.length;i+=step)d+=(d?'L':'M')+X2(xs[i]).toFixed(1)+','+Y(y[i]).toFixed(1);return d};
+    ss.forEach(s=>{g+=`<path d="${path(s[P.f],X)}" fill="none" stroke="${col[s.key]}" stroke-width="1.6"${s.famI?` stroke-opacity="${Math.max(.35,1-s.famI*.12)}"`:''}/>`});
+    g+='</g>';
+    if(simRes.kind==='ac')g+=`<text x="${Lm+6}" y="${top+13}" class="pltk" text-anchor="start">${P.f==='ph'?'phase':'magnitude (dB)'}</text>`;
   });
-  M.traces.slice(0,8).forEach((tr,i)=>{
-    g+=`<rect x="${L+10}" y="${Tp+6+i*14}" width="9" height="9" fill="${TRC[tr.ci%TRC.length]}"/>
-        <text x="${L+24}" y="${Tp+15+i*14}" font-family="var(--mono)" font-size="10.5" fill="#AFBDCA">${tr.label}</text>`});
-  if(plCur!==null&&plCur>=L&&plCur<=W-Rp){
-    const t=t0+(plCur-L)/(W-L-Rp)*(t1-t0);
-    const xv=M.xlog?Math.pow(10,t):t;
-    g+=`<line x1="${plCur}" y1="${Tp}" x2="${plCur}" y2="${H-B}" stroke="var(--sel)" stroke-dasharray="4 3"/>`;
-    let yy=Tp+34+M.traces.length*14;
-    g+=`<text x="${plCur+7}" y="${Tp+28+M.traces.length*14}" font-family="var(--mono)" font-size="10.5" fill="var(--sel)">${fv(xv,M.xlabel)}</text>`;
-    let k=0;while(k<M.x.length-1&&M.x[k]<xv)k++;
-    M.traces.slice(0,8).forEach(tr=>{
-      const v=tr.y[k]; if(v===undefined)return;
-      yy+=14;
-      g+=`<circle cx="${plCur}" cy="${Y(v)}" r="3" fill="${TRC[tr.ci%TRC.length]}"/>
-          <text x="${plCur+7}" y="${yy}" font-family="var(--mono)" font-size="10.5" fill="${TRC[tr.ci%TRC.length]}">${fv(v,M.ylabel)}</text>`;
-    });
+  /* x axis */
+  const xb=H-Bm;
+  (lg?logTicks(plv.x0,plv.x1):niceTicks(plv.x0,plv.x1,Math.max(3,Math.round(W/110)))).forEach(v=>{
+    const xv=lg?Math.pow(10,v):v, x=X2(xv);
+    g+=`<line x1="${x}" x2="${x}" y1="${Tm}" y2="${xb}" stroke="#18202A"/>
+        <text x="${x}" y="${xb+15}" text-anchor="middle" class="pltk">${fv(xv,simRes.xunit)}</text>`});
+  g+=`<text x="6" y="${xb+15}" text-anchor="start" class="pltk" style="fill:var(--accent)">${esc(simRes.xname)}</text>`;
+  /* remember the layout so clicks, drags and keys can map pixels <-> data */
+  PL={Lm,Rm,W,Tm,xb,lg,X,panels,on,X2,tx,col};
+  /* markers: a triangle on the curve and a small speech bubble whose tail
+     always points back at it. The bubble sits under the marker by default and
+     can be dragged anywhere (its offset is kept on the marker). A delta marker's
+     bubble adds a line with the difference to its reference marker. */
+  const mks=MK[simRes.kind]||[]; PL.bubbles=[];
+  let bub='';
+  mks.forEach(m=>{
+    const q=mkPos(m); if(!q)return;
+    const sel=m.id===mkSel, c=col[q.s.key];
+    const r=m.ref&&mks.find(x=>x.id===m.ref), rq=r&&mkPos(r);
+    if(rq)g+=`<line x1="${rq.px}" y1="${rq.py}" x2="${q.px}" y2="${q.py}" stroke="#C9D3DD" stroke-dasharray="2 3" stroke-opacity=".6"/>`;
+    g+=`<line x1="${q.px}" x2="${q.px}" y1="${q.P.top}" y2="${q.P.top+q.P.ph}" stroke="${c}" stroke-opacity="${sel?.5:.18}"/>
+      <path d="M${q.px},${q.py-2} l-5,-8 h10 z" fill="${sel?'#FFFFFF':c}" stroke="#0C1117" stroke-width="1"/>`;
+    const lines=[`${m.name}  ${fv(q.x,simRes.xunit)}  ${fmtY(q.P,q.y)}`];
+    if(rq)lines.push(`Δx ${fv(q.x-rq.x,simRes.xunit)}  Δy ${fmtY(q.P,q.y-rq.y)}`);
+    if(m.miss)lines.push(`y ${fmtY(q.P,m.v)} not reached`);
+    const cw=5.6, lh=11, w=Math.max(...lines.map(t=>t.length))*cw+10, h=lines.length*lh+6;
+    if(m.ox===undefined){m.ox=0;m.oy=18}
+    const x0=q.px+m.ox-w/2, y0=q.py+m.oy, x1=x0+w, y1=y0+h;
+    PL.bubbles.push({id:m.id,x0,y0,x1,y1});
+    /* tail: from the nearest point of the bubble's edge to the marker */
+    const cl=(v,a,b)=>Math.max(a,Math.min(b,v)), inside=q.px>=x0&&q.px<=x1&&q.py>=y0&&q.py<=y1;
+    const tb=q.py<y0||q.py>y1;                       // tail leaves the top/bottom edge, else a side
+    const nx=tb?cl(q.px,x0+5,x1-5):(q.px<x0?x0:x1), ny=tb?(q.py<y0?y0:y1):cl(q.py,y0+5,y1-5);
+    const b1=tb?[nx-5,ny]:[nx,ny-5], b2=tb?[nx+5,ny]:[nx,ny+5];
+    const n=tb?[0,q.py<y0?1.5:-1.5]:[q.px<x0?1.5:-1.5,0];   // nudge into the box to hide the seam
+    const fill='#0F141A', st=sel?'#FFFFFF':c, tri=(a,b)=>`M${q.px},${q.py} L${a[0]},${a[1]} L${b[0]},${b[1]} Z`;
+    if(!inside)bub+=`<path d="${tri(b1,b2)}" fill="${fill}" stroke="${st}" stroke-width="1"/>`;
+    bub+=`<rect x="${x0}" y="${y0}" width="${w}" height="${h}" rx="3" fill="${fill}" stroke="${st}" stroke-width="1" style="cursor:move"/>`;
+    if(!inside)bub+=`<path d="${tri([b1[0]+n[0],b1[1]+n[1]],[b2[0]+n[0],b2[1]+n[1]])}" fill="${fill}"/>`;
+    lines.forEach((t,k)=>{bub+=`<text x="${x0+5}" y="${y0+lh*(k+1)}" class="pltk" style="fill:${k?'#AFBDCA':st};font-size:9px">${esc(t)}</text>`});
+  });
+  PL.bubblesSvg=bub;
+  /* hover cursor */
+  if(plHover!=null){
+    const x=plHover, xv=lg?Math.pow(10,plv.x0+(x-Lm)/(W-Lm-Rm)*(plv.x1-plv.x0)):plv.x0+(x-Lm)/(W-Lm-Rm)*(plv.x1-plv.x0);
+    const i=Math.max(0,Math.min(X.length-1,nearestIdx(X,xv)));
+    g+=`<line x1="${X2(X[i])}" x2="${X2(X[i])}" y1="${Tm}" y2="${xb}" stroke="#6B7A89" stroke-dasharray="3 3"/>`;
+    const rows=[`<b>${fv(X[i],simRes.xunit)}</b>`];
+    panels.forEach(P=>on.filter(s=>inP(s,P)).forEach(s=>{const v=s[P.f][i];
+      g+=`<circle cx="${X2(X[i])}" cy="${P.Y(v)}" r="3" fill="${col[s.key]}"/>`;
+      rows.push(`<span style="color:${col[s.key]}">${esc(s.label)}${s.fam?' '+esc(s.fam):''}</span> ${P.f==='ph'?v.toFixed(1)+'°':P.u==='dB'?v.toFixed(2)+' dB':fv(v,P.u)}`)}));
+    document.getElementById('plread').innerHTML=rows.join('<br>');
+    document.getElementById('plread').style.display='';
+  } else document.getElementById('plread').style.display='none';
+  sv.innerHTML=g+(PL.bubblesSvg||'');
+  sv.dataset.lm=Lm; sv.dataset.rm=Rm;
+}
+/* ---------- markers ----------
+   A marker sits on one trace (its key, and its family member for a stepped DC
+   sweep) in one panel. It is stored as "x = value" or "y = value": an x marker
+   reads the trace there; a y marker finds where the trace first reaches that
+   level at or after where it was. Stored that way, markers follow the curve
+   when the circuit is re-run. A delta marker also names a reference marker. */
+let PL=null, MK={}, mkSel=null, mkN=1, mkDrag=null, bDrag=null;
+const sidOf=s=>s.key+'|'+(s.famI??'');
+const fmtY=(P,v)=>P.f==='ph'?v.toFixed(2)+'°':P.u==='dB'?v.toFixed(2)+' dB':fv(v,P.u);
+function interpAt(X,Y,x,lg){
+  const t=v=>lg?Math.log10(Math.max(v,1e-30)):v, tv=t(x);
+  if(tv<=t(X[0]))return Y[0]; if(tv>=t(X[X.length-1]))return Y[Y.length-1];
+  const i=lowerIdx(X,tv,t), f=(tv-t(X[i]))/(t(X[i+1])-t(X[i])||1); return Y[i]+f*(Y[i+1]-Y[i]);
+}
+function mkPos(m){
+  if(!PL)return null;
+  const s=PL.on.find(x=>sidOf(x)===m.sid); if(!s)return null;
+  const P=PL.panels.find(p=>p.f===m.f&&(simRes.kind==='ac'||s.unit===p.u)); if(!P)return null;
+  const X=PL.X, Y=s[m.f]; let x=m.v;
+  m.miss=false;
+  if(m.mode==='y'){
+    /* first crossing of the level at/after the last position, else from the start */
+    const from=Math.max(0,nearestIdx(X,m.x??X[0])-1), cross=i=>(Y[i]-m.v)*(Y[i+1]-m.v)<=0&&Y[i]!==Y[i+1];
+    let i=-1; for(let k=from;k<Y.length-1;k++)if(cross(k)){i=k;break}
+    if(i<0)for(let k=0;k<Math.min(from,Y.length-1);k++)if(cross(k)){i=k;break}
+    if(i<0){m.miss=true;x=m.x??X[0]}
+    else{const t=v=>PL.lg?Math.log10(v):v, f=(m.v-Y[i])/(Y[i+1]-Y[i]); x=PL.lg?Math.pow(10,t(X[i])+f*(t(X[i+1])-t(X[i]))):X[i]+f*(X[i+1]-X[i])}
   }
-  sv.innerHTML=g;
-  hint.textContent='scroll to zoom · drag to pan · double-click resets';
+  m.x=x;
+  const y=interpAt(X,Y,x,PL.lg);
+  return {s,P,x,y,px:PL.X2(x),py:P.Y(y)};
 }
-(function plotEvents(){
-  const sv=document.getElementById('pl');let pd=null;
-  sv.addEventListener('mousemove',e=>{
-    const r=sv.getBoundingClientRect();
-    if(pd&&simRes){const W=sv.clientWidth,L=70,Rp=18;
-      const dt=(e.clientX-pd.x)/(W-L-Rp)*(pd.t1-pd.t0);
-      plView={t0:pd.t0-dt,t1:pd.t1-dt};}
-    plCur=e.clientX-r.left;plot();});
-  sv.addEventListener('mouseleave',()=>{plCur=null;plot()});
-  sv.addEventListener('mousedown',e=>{if(!plView)return;
-    pd={x:e.clientX,t0:plView.t0,t1:plView.t1}});
-  window.addEventListener('mouseup',()=>pd=null);
-  sv.addEventListener('dblclick',()=>{if(simRes){plView=null;plot()}});
-  sv.addEventListener('wheel',e=>{
-    if(!simRes||!plView)return;e.preventDefault();
-    const r=sv.getBoundingClientRect(),W=sv.clientWidth,L=70,Rp=18;
-    const fx=Math.max(0,Math.min(1,(e.clientX-r.left-L)/(W-L-Rp)));
-    const t=plView.t0+fx*(plView.t1-plView.t0);
-    const f=e.deltaY<0?1/1.25:1.25;
-    const span=(plView.t1-plView.t0)*f;
-    plView={t0:t-fx*span,t1:t+(1-fx)*span};plot();
-  },{passive:false});
+/* pixel -> data x, and the panel under a pixel */
+function pxToX(px){const t=plv.x0+(px-PL.Lm)/(PL.W-PL.Lm-PL.Rm)*(plv.x1-plv.x0); return PL.lg?Math.pow(10,t):t}
+const panelAt=py=>PL&&PL.panels.find(P=>py>=P.top-6&&py<=P.top+P.ph+6);
+/* drop a marker on the trace nearest the cursor */
+function dropMarker(px,py,asDelta){
+  if(!PL||!simRes||!simRes.x)return;
+  const P=panelAt(py)||PL.panels[0], x=pxToX(px);
+  let best=null,bd=Infinity;
+  PL.on.filter(s=>simRes.kind==='ac'||s.unit===P.u).forEach(s=>{
+    const d=Math.abs(P.Y(interpAt(PL.X,s[P.f],x,PL.lg))-py); if(d<bd){bd=d;best=s}});
+  if(!best)return;
+  const list=MK[simRes.kind]=MK[simRes.kind]||[];
+  const ref=asDelta?list.find(m=>m.id===mkSel):null;
+  if(asDelta&&!ref){toast('select a marker first (click it), then press d');return}
+  const m={id:mkN,name:(ref?'D':'M')+mkN,sid:sidOf(best),f:P.f,mode:'x',v:x,x,ref:ref?ref.id:null};
+  mkN++; list.push(m); mkSel=m.id; drawPlot();
+}
+function markerAt(px,py){
+  /* the triangle head, or anywhere on the marker's vertical line */
+  const mks=MK[simRes&&simRes.kind]||[]; let best=null,bd=Infinity;
+  mks.forEach(m=>{const q=mkPos(m); if(!q)return;
+    const head=Math.hypot(q.px-px,q.py-8-py), onLine=Math.abs(q.px-px)<4&&py>=q.P.top&&py<=q.P.top+q.P.ph;
+    const d=head<11?head:onLine?11:Infinity; if(d<bd){bd=d;best=m}});
+  return best;
+}
+function deleteMarker(id){
+  const list=MK[simRes.kind]||[]; const kill=new Set([id]);
+  list.forEach(m=>{if(m.ref===id)kill.add(m.id)});
+  MK[simRes.kind]=list.filter(m=>!kill.has(m.id)); mkSel=null; drawPlot();
+}
+/* q on a marker: choose X or Y and type where it should go */
+let mkEdit=null;
+function openMarkerDialog(m){
+  const q=mkPos(m); if(!q)return;
+  mkEdit={m,mode:m.mode};
+  document.getElementById('ptitle').textContent=`${m.name} — marker`;
+  const draw=()=>{
+    const isX=mkEdit.mode==='x', unit=isX?simRes.xunit:(q.P.f==='ph'?'°':q.P.u);
+    const cur=isX?q.x:q.y;
+    document.getElementById('pbody').innerHTML=
+      `<div class="prow"><label>place by</label><span class="seg" id="mkMode">
+        <button type="button" data-mm="x"${isX?' class="on"':''}>X value</button>
+        <button type="button" data-mm="y"${!isX?' class="on"':''}>Y value</button></span></div>
+       <div class="prow"><label>${isX?simRes.xname:'level'}</label>
+        <input id="mkVal" value="${isX?fv(cur,'').trim():(q.P.f==='ph'||q.P.u==='dB'?cur.toFixed(3):fv(cur,'').trim())}"><span class="u">${unit}</span></div>
+       <div style="font-size:10.5px;color:var(--dim);margin-top:6px;line-height:1.6">
+        On <b>${esc(q.s.label)}</b>. ${isX?'The marker reads the trace at this '+esc(simRes.xname)+'.':
+        'The marker moves to where the trace first reaches this level (searching forward from where it is now).'}
+        Suffixes work (1.5M, 200n). <b>enter</b> applies.</div>`;
+    setTimeout(()=>{const i=document.getElementById('mkVal');i.focus();i.select()},0);
+  };
+  mkEdit.redraw=draw; draw();
+  document.getElementById('pOk').style.display=''; document.getElementById('pX').textContent='Cancel';
+  pTarget=null; srcDraft=null;
+  document.getElementById('pmodal').classList.add('show');
+}
+document.getElementById('pbody').addEventListener('click',e=>{
+  const b=e.target.closest('[data-mm]'); if(!b||!mkEdit)return; mkEdit.mode=b.dataset.mm; mkEdit.redraw();});
+function applyMarkerDialog(){
+  const t=document.getElementById('mkVal').value.trim();
+  if(!VALRE.test(t)&&!/^[-+]?\d*\.?\d+(e[-+]?\d+)?$/i.test(t)){toast(`"${t}" isn't a number I can read`);return false}
+  const m=mkEdit.m; m.mode=mkEdit.mode; m.v=pv(t); mkEdit=null; drawPlot(); return true;
+}
+
+function lowerIdx(X,t,tx){let lo=0,hi=X.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(tx(X[m])<=t)lo=m;else hi=m-1}return lo}
+function nearestIdx(X,v){let lo=0,hi=X.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(X[m]<v)lo=m;else hi=m}return Math.abs(X[lo]-v)<Math.abs(X[hi]-v)?lo:hi}
+function niceTicks(a,b,n){const span=b-a;if(!(span>0))return[a];const raw=span/n,mag=Math.pow(10,Math.floor(Math.log10(raw)));
+  const st=[1,2,2.5,5,10].map(x=>x*mag).find(x=>x>=raw)||10*mag;const out=[];for(let v=Math.ceil(a/st)*st;v<=b+st*1e-9;v+=st)out.push(Math.abs(v)<st*1e-9?0:v);return out}
+function logTicks(a,b){const out=[];for(let e=Math.ceil(a);e<=Math.floor(b);e++)out.push(e);return out.length>=2?out:niceTicks(a,b,4)}
+
+/* ---------- pane events ---------- */
+(()=>{
+  const pane=document.getElementById('simpane');
+  document.getElementById('bSim').onclick=()=>paneOpen()?closePane():openPane();
+  document.getElementById('spX').onclick=closePane;
+  document.getElementById('spMax').onclick=()=>{pane.classList.toggle('max');requestAnimationFrame(()=>{render();drawPlot()})};
+  document.getElementById('spRun').onclick=()=>runAnalysis();
+  document.getElementById('spProbe').onclick=()=>{
+    if(mode==='probe'){setMode('select');return}
+    pane.classList.remove('max'); setMode('probe');
+    toast('click wires to show or hide them in the plot · esc when done');
+  };
+  document.getElementById('spNet').onclick=()=>{
+    let t; try{const ana={kind:SIM.ana}; if(SIM.ana==='ac')ana.acSrc=+SIM.ac.src;
+      const ctx=spiceNetlist(ana); t=ctx.L.concat(analysisLines(ana,ctx),['.end']).join('\n')}
+    catch(e){t=(simRes&&simRes.netlist)||('* '+e.message)}
+    document.getElementById('out').textContent=t;
+    document.querySelector('#card h3').textContent='ngspice netlist (generated from the schematic, read-only)';
+    ['bProg','bDl','benchlist'].forEach(id=>document.getElementById(id).style.display='none');
+    document.getElementById('picolog').classList.remove('on');
+    document.getElementById('modal').classList.add('show');
+  };
+  document.getElementById('spside').addEventListener('click',e=>{const b=e.target.closest('[data-acm]');if(!b)return;
+    SIM.ac.mode=b.dataset.acm; saveSim(); drawSettings();});
+  document.getElementById('spAna').onclick=e=>{const b=e.target.closest('[data-an]');if(!b)return;
+    SIM.ana=b.dataset.an; saveSim(); drawSettings();};
+  const side=document.getElementById('spside');
+  side.addEventListener('change',e=>{
+    const f=e.target.dataset.sf, k=e.target.dataset.sig;
+    if(k!==undefined){probe[k]=e.target.checked;drawSignals();drawPlot();render();return}
+    if(!f)return;
+    const [a,b]=f.split('.'), v=e.target.type==='checkbox'?e.target.checked:e.target.value;
+    if(b)SIM[a][b]=v; else SIM[a]=v;
+    saveSim();
+    if(e.target.tagName==='SELECT'&&/src/.test(f)){const c=comps.find(x=>x.id===+v);if(c)flashDev(c.id)}
+    if(e.target.type==='checkbox'||e.target.tagName==='SELECT')drawSettings();
+  });
+  side.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.dataset.sf){e.target.dispatchEvent(new Event('change',{bubbles:true}));runAnalysis()}});
+  /* plot: wheel zooms the time/sweep axis around the cursor (proportional to the
+     scroll distance, so a trackpad swipe doesn't jump to the limit), drag pans,
+     double-click shows everything */
+  const sv=document.getElementById('pl'); let pdrag=null;
+  const fx=e=>{const r=sv.getBoundingClientRect(),Lm=+sv.dataset.lm||62,Rm=+sv.dataset.rm||14;
+    return {x:e.clientX-r.left,f:(e.clientX-r.left-Lm)/(r.width-Lm-Rm)}};
+  sv.addEventListener('wheel',e=>{if(!plv||!simRes||!simRes.x)return;e.preventDefault();
+    const {f}=fx(e), c=plv.x0+f*(plv.x1-plv.x0), k=Math.exp(Math.max(-0.5,Math.min(0.5,e.deltaY*0.002)));
+    plv.x0=Math.max(plv.f0,c-(c-plv.x0)*k); plv.x1=Math.min(plv.f1,c+(plv.x1-c)*k); drawPlot()},{passive:false});
+  sv.addEventListener('mousedown',e=>{
+    if(!plv)return; const r=sv.getBoundingClientRect(), px=e.clientX-r.left, py=e.clientY-r.top;
+    const b=PL&&(PL.bubbles||[]).slice().reverse().find(b=>px>=b.x0&&px<=b.x1&&py>=b.y0&&py<=b.y1);
+    if(b){const m=MK[simRes.kind].find(x=>x.id===b.id); mkSel=m.id;
+      bDrag={m,sx:e.clientX,sy:e.clientY,ox:m.ox,oy:m.oy}; drawPlot(); return}   // move a bubble
+    const m=PL&&markerAt(px,py);
+    if(m){mkSel=m.id; mkDrag={m}; drawPlot(); return}       // grab a marker
+    if(mkSel){mkSel=null; drawPlot()}
+    pdrag={x:e.clientX,x0:plv.x0,x1:plv.x1,w:r.width}});
+  window.addEventListener('mousemove',e=>{
+    if(bDrag){bDrag.m.ox=bDrag.ox+e.clientX-bDrag.sx; bDrag.m.oy=bDrag.oy+e.clientY-bDrag.sy; drawPlot(); return}
+    if(mkDrag){const r=sv.getBoundingClientRect(); const m=mkDrag.m;
+      m.mode='x'; m.v=Math.max(PL.X[0],Math.min(PL.X[PL.X.length-1],pxToX(e.clientX-r.left))); plHover=e.clientX-r.left; drawPlot(); return}
+    if(pdrag){const d=(e.clientX-pdrag.x)/(pdrag.w-76)*(pdrag.x1-pdrag.x0);const w=pdrag.x1-pdrag.x0, x0=Math.max(plv.f0,Math.min(plv.f1-w,pdrag.x0-d));plv.x0=x0;plv.x1=x0+w;drawPlot();return}
+    if(e.target instanceof Node&&sv.contains(e.target)){plHover=fx(e).x;plHoverY=e.clientY-sv.getBoundingClientRect().top;drawPlot()}
+  });
+  window.addEventListener('mouseup',()=>{pdrag=null;mkDrag=null;bDrag=null});
+  sv.addEventListener('mouseleave',()=>{plHover=null;drawPlot()});
+  sv.addEventListener('dblclick',e=>{
+    const r=sv.getBoundingClientRect(), px=e.clientX-r.left, py=e.clientY-r.top;
+    const b=PL&&(PL.bubbles||[]).find(b=>px>=b.x0&&px<=b.x1&&py>=b.y0&&py<=b.y1);
+    if(b){const m=MK[simRes.kind].find(x=>x.id===b.id); if(m)openMarkerDialog(m); return}
+    plv=null;drawPlot()});
+  /* keys act on the plot while the pointer is over it (they mean other things on the schematic):
+     f fit, m marker, d delta to the selected marker, q edit it, delete removes it */
+  let overPlot=false;
+  const spp=document.getElementById('spplot');
+  spp.addEventListener('mouseenter',()=>overPlot=true); spp.addEventListener('mouseleave',()=>overPlot=false);
+  window.addEventListener('keydown',e=>{
+    if(!overPlot||!paneOpen()||openModal()||/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))return;
+    if(!simRes||!simRes.x||e.metaKey||e.ctrlKey||e.altKey)return;
+    const k=e.key.toLowerCase(), list=MK[simRes.kind]||[], sel=list.find(m=>m.id===mkSel);
+    const hx=plHover??(PL?(PL.Lm+PL.W)/2:0), hy=plHoverY??(PL?PL.panels[0].top+10:0);
+    let done=true;
+    if(k==='f'){plv=null;drawPlot()}
+    else if(k==='m')dropMarker(hx,hy,false);
+    else if(k==='d')dropMarker(hx,hy,true);
+    else if(k==='q'){if(sel)openMarkerDialog(sel);else toast('click a marker to select it, then q')}
+    else if(k==='delete'||k==='backspace'){if(sel)deleteMarker(sel.id)}
+    else if(k==='escape'&&sel){mkSel=null;drawPlot()}
+    else done=false;
+    if(done){e.preventDefault();e.stopPropagation()}
+  },true);
+  /* resize the pane by its top edge */
+  const hd=document.getElementById('sphandle'); let rz=null;
+  try{const h=+localStorage.getItem('mosbius.sim.h');if(h)pane.style.setProperty('--sph',h+'px')}catch(e){}
+  hd.addEventListener('mousedown',e=>{rz={y:e.clientY,h:pane.getBoundingClientRect().height};e.preventDefault()});
+  window.addEventListener('mousemove',e=>{if(!rz)return;
+    const h=Math.max(150,Math.min(window.innerHeight*0.8,rz.h-(e.clientY-rz.y)));
+    pane.style.setProperty('--sph',h+'px'); render(); drawPlot()});
+  window.addEventListener('mouseup',()=>{if(rz){try{localStorage.setItem('mosbius.sim.h',parseInt(pane.style.getPropertyValue('--sph')))}catch(e){}}rz=null});
+  window.addEventListener('keydown',e=>{if(e.key==='F5'){e.preventDefault();runAnalysis()}});
+  window.addEventListener('resize',()=>{if(paneOpen())drawPlot()});
 })();
-
-document.getElementById('bSim').onclick=()=>openSim();
-/* Probe: hide the simulator, hand the schematic a scope-probe cursor, and come
-   back here on escape. This is the "tell me what to plot" step. */
-document.getElementById('simProbe').onclick=()=>{
-  document.getElementById('sim').classList.remove('show');
-  probeReturn=true; setMode('probe');
-  toast('click nets to probe them \u00b7 esc returns to the simulator');
-};
-/* Check: validate the netlist without simulating anything. */
-document.getElementById('simCheck').onclick=()=>{
-  const ct=buildCircuit();
-  const msgs=[];
-  const nm=ct.devs.filter(d=>d.kind==='m').length;
-  noDCPath(ct).forEach(()=>{});
-  const nodc=noDCPath(ct);
-  if(nodc.length)msgs.push(['e',dcPathAdvice(nodc,ct)]);
-  ct.warn.forEach(w=>msgs.push(['w',w]));
-  if(!nm&&!ct.ress.length&&!ct.caps.length)msgs.push(['e','Nothing to simulate.']);
-  const probed=Object.keys(probe).filter(k=>probe[k]).length;
-  if(!probed)msgs.push(['w','No nets probed — press "Probe nets" and click the ones you want to plot.']);
-  if(!msgs.length)msgs.push(['o',`${nm} transistors, ${ct.free.length} unknown nodes, ${probed} probed. Ready.`]);
-  document.getElementById('out').textContent=msgs.map(m=>
-    (m[0]==='e'?'\u2716  ':m[0]==='w'?'\u26a0  ':'\u2713  ')+m[1]).join('\n\n');
-  document.querySelector('#card h3').textContent='Netlist check';
-  document.getElementById('bProg').style.display='none';
-  document.getElementById('bDl').style.display='none';
-  document.getElementById('picolog').classList.remove('on');
-  document.getElementById('modal').classList.add('show');
-};
-function openSim(){
-  document.getElementById('sim').classList.add('show');
-  simSetup(); plot(); measPanel();      /* shows the last result, does not compute */
+/* briefly highlight a device on the schematic (used when picking a source) */
+function flashDev(id){hover={kind:'dev',id};render();setTimeout(()=>{if(hover&&hover.id===id){hover=null;render()}},1200)}
+/* called after any schematic edit: results no longer match what is drawn */
+function simStale(){if(simRes&&!simRes.err&&!simRes.stale){simRes.stale=true;
+  if(paneOpen())setStat('schematic changed — press Run (F5) to update')}}
+/* When the wiring changes, net names can move to different wires (net7 may
+   now be something else), so the ticked signals and their markers are cleared
+   rather than silently showing a different node. Moving parts or editing values
+   leaves the nets as they were and keeps them. Checked on every redraw, so undo
+   and redo count too. */
+let netSig=null;
+function netsChanged(N){
+  const sig=N.map(n=>n.name+'='+n.keys.slice().sort().join(',')).sort().join('|');
+  if(netSig!==null&&sig!==netSig&&(Object.values(probe).some(Boolean)||Object.keys(MK).length)){
+    probe={}; MK={}; mkSel=null;
+    if(paneOpen()){drawSignals();drawPlot()}
+  }
+  netSig=sig;
 }
-document.getElementById('simRun').onclick=()=>{runSim()};
-
-document.getElementById('simX').onclick=()=>document.getElementById('sim').classList.remove('show');
+/* a click with the probe toggled a signal */
+function probeChanged(){if(paneOpen()){drawSignals();drawPlot()}}
 
 /* ==========================================================================
    Device information.
@@ -3418,6 +3986,8 @@ function openProps(c){
     c.props={...(c.props||{}),bus:Math.max(1,Math.min(10,parseInt(b,10)||1))};
     commit();render();return;
   }
+  srcDraft=null;
+  if(c.key==='vsrc'||c.key==='isrc'){openSrcDialog(c);return}
   pTarget=PDEF[c.key]?c:null;
   document.getElementById('ptitle').textContent=BY[c.key].n+(PDEF[c.key]?' \u2014 properties':' \u2014 device info');
   const editable=PDEF[c.key]?Object.keys(PDEF[c.key]).map(k=>
@@ -3436,6 +4006,41 @@ function openProps(c){
   const first=document.querySelector('#pbody [data-pk]');
   if(first)setTimeout(()=>{first.focus();first.select()},0);
 }
+/* Source dialog: a mode selector, and the fields for that mode. Values typed in
+   one mode are kept while you flip between modes, and only saved on Apply. */
+let srcDraft=null;
+function openSrcDialog(c){
+  pTarget=c; srcDraft={...(c.props||{})}; if(!srcDraft.mode)srcDraft.mode='dc';
+  document.getElementById('ptitle').textContent=
+    `${c.nm} — ${c.key==='isrc'?'current':'voltage'} source`;
+  drawSrcDialog();
+  document.getElementById('pOk').style.display='';
+  document.getElementById('pX').textContent='Cancel';
+  document.getElementById('pmodal').classList.add('show');
+}
+function drawSrcDialog(){
+  const c=pTarget, m=srcDraft.mode, u=srcU(c);
+  document.getElementById('pbody').innerHTML=
+    `<div class="prow"><label>waveform</label><span class="seg" id="srcMode">
+      ${SRCMODES.map(([k,l])=>`<button type="button" data-sm="${k}"${k===m?' class="on"':''}>${l}</button>`).join('')}
+     </span></div><input type="hidden" data-pk="mode" value="${m}">`+
+    SRCF[m].map(([k,l,unit])=>`<div class="prow"><label>${l}</label>
+      <input data-pk="${k}" value="${srcDraft[k]??''}" placeholder="${PDEF[c.key][k]}">
+      <span class="u">${unit===undefined?u:unit}</span></div>`).join('')+
+    `<div style="font-size:10.5px;color:var(--dim);margin-top:6px;line-height:1.6">
+      ${m==='pwl'?`Pairs of <i>time value</i>, separated by commas, e.g. <span style="font-family:var(--mono)">0 0, 1u 2.5, 3u 0</span>.<br>`:''}
+      ${m==='sin'?'For an AC (frequency) analysis you just pick this source as the input; nothing to set here.<br>':''}
+      Suffixes: <span style="font-family:var(--mono)">f p n u m k M G</span> (M = mega). Blank uses the grey default.
+      <b>enter</b> saves · <b>esc</b> cancels.</div>`;
+  const first=document.querySelector('#pbody input[data-pk]:not([type=hidden])');
+  if(first)setTimeout(()=>{first.focus();first.select()},0);
+}
+document.getElementById('pbody').addEventListener('click',e=>{
+  const b=e.target.closest('[data-sm]'); if(!b||!srcDraft)return;
+  document.querySelectorAll('#pbody input[data-pk]').forEach(i=>{srcDraft[i.dataset.pk]=i.value.trim()});
+  srcDraft.mode=b.dataset.sm; drawSrcDialog();
+});
+
 /* ---------- text annotation dialog ---------- */
 let tEdit=null;                       // component being edited, or null when placing new
 function openTextDialog(c){
@@ -3509,15 +4114,24 @@ function openPropsForSelection(){
   }
   const c=comps.find(x=>selIds.has(x.id)); if(c)openProps(c);
 }
-document.getElementById('pX').onclick=()=>document.getElementById('pmodal').classList.remove('show');
+document.getElementById('pX').onclick=()=>{mkEdit=null;srcDraft=null;document.getElementById('pmodal').classList.remove('show')};
 /* pv() is a SPICE-style parser: it reads a leading number plus one suffix and
    ignores whatever follows. So "1k5" silently becomes 1 k, not 1.5 k. Catch that
    at entry rather than letting a mistyped value through to the simulator. */
+/* "0 0, 1u 2.5" -> [[0,0],[1e-6,2.5]], or null if it doesn't read as increasing-time pairs */
+function pwlPairs(txt){
+  const ps=String(txt).split(',').map(x=>x.trim()).filter(Boolean).map(x=>x.split(/\s+/));
+  if(!ps.length||ps.some(p=>p.length!==2||!VALRE.test(p[0])||!VALRE.test(p[1])))return null;
+  const out=ps.map(p=>[pv(p[0]),pv(p[1])]);
+  return out.every((p,i)=>i===0||p[0]>out[i-1][0])?out:null;
+}
 const VALRE=/^[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?\s*[fpnumkKMgG]?$/;
 document.getElementById('pOk').onclick=()=>{
+  if(mkEdit){if(applyMarkerDialog())document.getElementById('pmodal').classList.remove('show');return}
   if(pTarget){
     const fields=[...document.querySelectorAll('#pbody [data-pk]')];
-    const bad=fields.find(i=>i.value.trim()&&!VALRE.test(i.value.trim()));
+    const bad=fields.find(i=>!['mode','pwl'].includes(i.dataset.pk)&&i.value.trim()&&!VALRE.test(i.value.trim()))
+      ||fields.find(i=>i.dataset.pk==='pwl'&&i.value.trim()&&!pwlPairs(i.value));
     if(bad){
       bad.style.borderColor='var(--bad)';
       bad.focus(); bad.select();
@@ -3525,10 +4139,15 @@ document.getElementById('pOk').onclick=()=>{
       return;                              // keep the dialog open so it can be fixed
     }
     pTarget.props=pTarget.props||{};
-    fields.forEach(i=>{
+    if(srcDraft){
+      /* a source keeps what was typed in the other modes too */
+      fields.forEach(i=>{srcDraft[i.dataset.pk]=i.value.trim()});
+      pTarget.props=Object.fromEntries(Object.entries(srcDraft).filter(([,v])=>v!==''&&v!==undefined));
+    } else fields.forEach(i=>{
       const v=i.value.trim();
       if(v)pTarget.props[i.dataset.pk]=v; else delete pTarget.props[i.dataset.pk];
     });
+    srcDraft=null;
     commit();
   }
   document.getElementById('pmodal').classList.remove('show');render();
@@ -3566,7 +4185,6 @@ window.addEventListener('keydown',e=>{
 },true);
 
 window.addEventListener('resize',render);
-window.addEventListener('resize',()=>{if(simRes)plot()});
 
 /* ---------- boot: pick up where the last session left off ---------- */
 (function boot(){
