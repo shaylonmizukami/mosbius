@@ -28,6 +28,13 @@
   button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
   button.on{background:#123640;border-color:var(--accent);color:#DCF7FB}
   button.go{background:#16301F;border-color:#2C5A3C;color:#C9E9D6}
+  /* Lit states for the green .go buttons. .go is declared last and would
+     otherwise win the background, so each of these needs its own rule.
+     Pink = the simulation pane is open, or the chip was programmed;
+     light purple = connections.json was downloaded. */
+  button.go.on,
+  button.go.prog{background:#3A1C2B;border-color:#F7A8C4;color:#FCDDE9}
+  button.go.dl{background:#281E42;border-color:#C3A9F7;color:#E5DBFC}
   .sep{width:1px;height:22px;background:var(--line);margin:0 5px;flex:0 0 auto}
   .spacer{flex:1 0 auto}
   aside{background:var(--panel);overflow-y:auto}
@@ -243,7 +250,7 @@
     <div class="spacer"></div>
     <button id="bDemo">Ring oscillator</button>
     <button id="bSim" class="go" title="open / close the simulation pane">Simulate</button>
-    <button id="bExp" class="go">Export connections.json</button>
+    <button id="bExp" class="go" title="export the bus and pin connections that program the chip (connections.json)">Export Chip Connections</button>
   </div>
   <aside id="left"></aside>
   <div id="wrap"><svg id="cv"></svg><div id="hint"></div><div id="zoom"></div></div>
@@ -259,7 +266,7 @@
     <div id="sphandle" title="drag to resize"></div>
     <div id="spbar">
       <span class="brand">Simulation</span>
-      <span class="seg" id="spAna"><button type="button" data-an="op">Op point</button><button type="button" data-an="dc">DC sweep</button><button type="button" data-an="ac">AC</button><button type="button" data-an="tran">Transient</button></span>
+      <span class="seg" id="spAna"><button type="button" data-an="op">Op Point</button><button type="button" data-an="dc">DC Sweep</button><button type="button" data-an="ac">AC</button><button type="button" data-an="tran">Transient</button></span>
       <button id="spRun" class="go" title="F5">Run ▶</button>
       <span id="spStat"></span><span class="spacer"></span>
       <button id="spProbe" title="click wires on the schematic to show them in the plot">Probe</button>
@@ -754,6 +761,7 @@ function restore(s){
   comps=(o.comps||[]).map(migrateSource); segs=o.segs||[]; busOf=o.busOf||{}; alias=o.alias||{};
   uid=o.uid||1; nextNet=o.nextNet||1; nameOfPin=o.nameOfPin||{};
   selIds=new Set(); selSegs=new Set(); drag=null; draw=null; band=null;
+  clearExported(); clearRan();
 }
 let hist=[], hpos=-1, histLock=false;
 function commit(){                        // call AFTER mutating state
@@ -764,6 +772,7 @@ function commit(){                        // call AFTER mutating state
   hpos=hist.length-1;
   autosave();
   if(typeof simStale==='function')simStale();
+  clearExported(); clearRan();
 }
 function undo(){ if(hpos<=0)return; hpos--; histLock=true; restore(hist[hpos]); histLock=false; autosave(); render(); }
 function redo(){ if(hpos>=hist.length-1)return; hpos++; histLock=true; restore(hist[hpos]); histLock=false; autosave(); render(); }
@@ -1845,6 +1854,9 @@ cv.addEventListener('dblclick',e=>{
 });
 window.addEventListener('mousemove',e=>{
   const r=cv.getBoundingClientRect(), w=toWorld(e.clientX-r.left,e.clientY-r.top);
+  /* the expanded simulation pane sits on top of the sheet: what is under it is
+     not what the cursor is pointing at, so nothing there should light up */
+  const overPane=!!(e.target&&e.target.closest&&e.target.closest('#simpane'));
   if(pan){view.x=pan.vx+(e.clientX-pan.x);view.y=pan.vy+(e.clientY-pan.y);render();return}
   if(band){band.x1=w.x;band.y1=w.y;
     if(band.del){const nh=hitTest(w);if(!sameHit(nh,hover))hover=nh}
@@ -1887,7 +1899,7 @@ window.addEventListener('mousemove',e=>{
   /* select and delete modes highlight whatever is under the cursor, so it is
      always clear what a click is about to act on */
   if(mode==='select'||mode==='delete'){
-    const nh=hitTest(w);
+    const nh=overPane?null:hitTest(w);
     if(!sameHit(nh,hover)){hover=nh;render()}
     return;
   }
@@ -2163,6 +2175,25 @@ document.getElementById('bExp').onclick=()=>{
   be.style.display=bl.length?'':'none';
   document.getElementById('modal').classList.add('show')};
 let lastConns=null;
+/* Export freshness. The button lights up in the colour of whichever way the
+   configuration last left the editor — pink for the Pico, light purple for a
+   downloaded connections.json — and goes back to plain green the moment the
+   schematic is touched. Deliberately a one-way flag rather than a comparison
+   against the exported state: undoing back to what was exported does NOT relight
+   it, because the only thing that proves the chip and the sheet agree is sending
+   it again. Panning and zooming are not edits and leave it alone. */
+let expState=null;                 // null | 'dl' | 'prog'
+const EXPTIP={
+  dl:'connections.json has been downloaded for this schematic',
+  prog:'this schematic has been programmed onto the Pico'};
+function markExported(how){ expState=how; refreshExportBtn() }
+function clearExported(){ if(expState!==null){expState=null;refreshExportBtn()} }
+function refreshExportBtn(){
+  const b=document.getElementById('bExp'); if(!b)return;
+  b.classList.toggle('dl',expState==='dl');
+  b.classList.toggle('prog',expState==='prog');
+  b.title=EXPTIP[expState]||'export the bus and pin connections that program the chip (connections.json)';
+}
 document.getElementById('bClose').onclick=()=>document.getElementById('modal').classList.remove('show');
 document.getElementById('bProg').onclick=()=>{
   if(!lastConns||!Object.keys(lastConns).length){alert('Nothing to program — assign buses first.');return}
@@ -2179,6 +2210,7 @@ document.getElementById('bDl').onclick=()=>{
   const a=document.createElement('a');
   a.href=URL.createObjectURL(b); a.download='connections.json'; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  markExported('dl');
 };
 
 /* ==========================================================================
@@ -2282,7 +2314,7 @@ async function programPico(conns){
     while(Date.now()-t0<8000 && !/MOSBIUS_OK/.test(seen))
       await new Promise(r=>setTimeout(r,100));
     rd.releaseLock(); wr.releaseLock(); await pump;
-    if(/MOSBIUS_OK/.test(seen)) picoLog('\n\u2713 chip programmed.\n');
+    if(/MOSBIUS_OK/.test(seen)){ picoLog('\n\u2713 chip programmed.\n'); markExported('prog') }
     else picoLog('\n\u26a0 no confirmation from the board. Is it running MicroPython, '+
                  'and is Thonny (or another serial monitor) holding the port?\n');
   }catch(e){
@@ -3103,6 +3135,24 @@ const saveSim=()=>{try{localStorage.setItem('mosbius.sim.v2',JSON.stringify(SIM)
 let simRes=null;                     // last result
 let probe={};                        // signal key ('V:net' / 'I:V1') -> shown in the plot
 let simBusy=false;
+/* Which analysis the last successful run was, so Run can light up (pink, like the
+   export button) while the result on screen is the analysis currently selected.
+   Only one is remembered: running a different analysis forgets the previous one,
+   and switching the picker back and forth does not, so the lamp means "the result
+   on the plot is this analysis". Editing the schematic clears it one-way — undoing back does not relight it. AC counts its
+   two modes separately, since Response and Loop gain are different measurements. */
+let ranAna=null;
+const anaKey=(kind,loop)=>{
+  const k=kind||SIM.ana;
+  return k==='ac'?'ac:'+((loop===undefined?SIM.ac.mode==='loop':loop)?'loop':'resp'):k;
+};
+function clearRan(){ if(ranAna!==null){ranAna=null;refreshRunBtn()} }
+function refreshRunBtn(){
+  const b=document.getElementById('spRun'); if(!b)return;
+  const lit=ranAna!==null&&ranAna===anaKey();
+  b.classList.toggle('on',lit);
+  b.title=lit?'this analysis has already been run on this schematic (F5 to run again)':'F5';
+}
 
 /* ---------- the engine ---------- */
 let engineP=null;
@@ -3294,12 +3344,14 @@ async function runAnalysis(kind){
   setStat(`${ana.loop?'loop gain at '+ana.probeName:{op:'operating point',dc:'DC sweep',ac:'AC',tran:'transient'}[kind]} · ngspice · ${ana.ms} ms`+
     (simRes.flipped?' · probe was reversed, corrected':'')+
     (simRes.warn.length?` · ⚠ ${simRes.warn.length}`:''));
-  drawPaneAll(); render();
+  ranAna=anaKey(kind,!!ana.loop);
+  drawPaneAll(); render(); refreshRunBtn();
 }
 function simError(lines,netlist){
   simRes={kind:SIM.ana,err:lines,netlist:netlist||''};
+  ranAna=null;                       // nothing valid is on screen any more
   if(!paneOpen())openPane();
-  setStat('✖ did not run'); drawPaneAll();
+  setStat('✖ did not run'); drawPaneAll(); refreshRunBtn();
 }
 
 /* ngspice vectors -> plottable series, labelled with the schematic's names */
@@ -3481,47 +3533,48 @@ function drawSettings(){
     <span style="color:var(--good)">green</span> in saturation, <span style="color:#D6A653">amber</span> in triode,
     grey when off. Node voltages appear here.</div>`;
   else if(a==='dc') h=!srcs.length?none:`
-    <div class="frow"><label>sweep</label><select data-sf="dc.src">${srcOptions(SIM.dc.src)}</select></div>
-    ${fld('dc.from','from',srcUnitOf(SIM.dc.src))}${fld('dc.to','to',srcUnitOf(SIM.dc.src))}${fld('dc.step','step',srcUnitOf(SIM.dc.src))}
-    <label class="frow sw"><input type="checkbox" data-sf="dc.step2On"${SIM.dc.step2On?' checked':''}> <span>and step a second source (curve family)</span></label>
-    ${SIM.dc.step2On?`<div class="frow"><label>step</label><select data-sf="dc.src2">${srcOptions(SIM.dc.src2)}</select></div>
-    ${fld('dc.from2','from',srcUnitOf(SIM.dc.src2))}${fld('dc.to2','to',srcUnitOf(SIM.dc.src2))}${fld('dc.step2','step',srcUnitOf(SIM.dc.src2))}`:''}`;
+    <div class="frow"><label>Sweep</label><select data-sf="dc.src">${srcOptions(SIM.dc.src)}</select></div>
+    ${fld('dc.from','From',srcUnitOf(SIM.dc.src))}${fld('dc.to','To',srcUnitOf(SIM.dc.src))}${fld('dc.step','Step',srcUnitOf(SIM.dc.src))}
+    <label class="frow sw"><input type="checkbox" data-sf="dc.step2On"${SIM.dc.step2On?' checked':''}> <span>And Step a Second Source (Curve Family)</span></label>
+    ${SIM.dc.step2On?`<div class="frow"><label>Step</label><select data-sf="dc.src2">${srcOptions(SIM.dc.src2)}</select></div>
+    ${fld('dc.from2','From',srcUnitOf(SIM.dc.src2))}${fld('dc.to2','To',srcUnitOf(SIM.dc.src2))}${fld('dc.step2','Step',srcUnitOf(SIM.dc.src2))}`:''}`;
   else if(a==='ac'){
     const loop=SIM.ac.mode==='loop', lps=comps.filter(c=>c.key==='lprobe');
     if(loop&&!lps.some(c=>c.id===+SIM.ac.probe))SIM.ac.probe=lps[0]?lps[0].id:null;
     h=`<div class="frow"><span class="seg" id="acMode" style="flex:1">
         <button type="button" data-acm="resp"${loop?'':' class="on"'}>Response</button>
-        <button type="button" data-acm="loop"${loop?' class="on"':''}>Loop gain</button></span></div>`+
+        <button type="button" data-acm="loop"${loop?' class="on"':''}>Loop Gain</button></span></div>`+
     (loop
-      ? (lps.length?`<div class="frow"><label>loop probe</label><select data-sf="ac.probe">${lps.map(c=>
+      ? (lps.length?`<div class="frow"><label>Loop Probe</label><select data-sf="ac.probe">${lps.map(c=>
             `<option value="${c.id}"${+SIM.ac.probe===c.id?' selected':''}>${c.nm}</option>`).join('')}</select></div>`
           :`<div class="spnote">Place a <b>Loop probe</b> (Testbench) in the feedback wire \u2014 it is a plain wire at DC and on the chip.</div>`)
-        +`${fld('ac.f1','from','Hz')}${fld('ac.f2','to','Hz')}${fld('ac.ppd','points / decade','')}
+        +`${fld('ac.f1','From','Hz')}${fld('ac.f2','To','Hz')}${fld('ac.ppd','Points / Decade','')}
         <div class="spnote">Plots the gain around the loop at the probe, with DC loop gain, unity-gain frequency,
           phase margin and gain margin. Point the probe's arrow from the output back toward the amplifier input;
           if it is the other way round the result is corrected automatically.</div>`
       : (!srcs.length?none:`
-        <div class="frow"><label>input source</label><select data-sf="ac.src">${srcOptions(SIM.ac.src)}</select></div>
-        ${fld('ac.f1','from','Hz')}${fld('ac.f2','to','Hz')}${fld('ac.ppd','points / decade','')}
+        <div class="frow"><label>Input Source</label><select data-sf="ac.src">${srcOptions(SIM.ac.src)}</select></div>
+        ${fld('ac.f1','From','Hz')}${fld('ac.f2','To','Hz')}${fld('ac.ppd','Points / Decade','')}
         <div class="spnote">The input gets a 1 V (or 1 A) small signal, so each trace reads directly as gain from the input. Its DC value still sets the bias.
-          This is the closed-loop response; for stability (phase margin) use <b>Loop gain</b>.</div>`));
+          This is the closed-loop response; for stability (phase margin) use <b>Loop Gain</b>.</div>`));
   }
-  else h=`${fld('tran.tstop','stop time','s')}
-    <details class="spmore"${SIM.tran.tstart!=='0'||SIM.tran.icNode?' open':''}><summary>more</summary>
-      ${fld('tran.tstart','start plotting at','s')}
-      <div class="frow"><label>start node</label><select data-sf="tran.icNode"><option value="">—</option>
+  else h=`${fld('tran.tstop','Stop Time','s')}
+    <details class="spmore"${SIM.tran.tstart!=='0'||SIM.tran.icNode?' open':''}><summary>More</summary>
+      ${fld('tran.tstart','Start Plotting At','s')}
+      <div class="frow"><label>Start Node</label><select data-sf="tran.icNode"><option value="">—</option>
         ${nets().map(n=>`<option${n.name===SIM.tran.icNode?' selected':''}>${esc(n.name)}</option>`).join('')}</select></div>
-      ${fld('tran.icV','… at','V')}
+      ${fld('tran.icV','… At','V')}
       <div class="spnote">A start node kicks circuits that would otherwise sit still, such as a ring oscillator.</div>
     </details>
     <div class="spnote">Time steps are chosen automatically.</div>`;
   document.getElementById('spSet').innerHTML=h;
   document.getElementById('spModel').innerHTML=`
-    ${fld('vdd','chip supply','V')}
-    <label class="frow sw"><input type="checkbox" data-sf="cpadOn"${SIM.cpadOn?' checked':''}> <span>pad + board capacitance</span></label>
-    ${SIM.cpadOn?fld('cpad','… per pad','F'):''}
+    ${fld('vdd','Chip Supply','V')}
+    <label class="frow sw"><input type="checkbox" data-sf="cpadOn"${SIM.cpadOn?' checked':''}> <span>Pad + Board Capacitance</span></label>
+    ${SIM.cpadOn?fld('cpad','… Per Pad','F'):''}
     <div class="spnote">ngspice with BSIM3 models fitted to measurements of this chip. DC and gain are
       close; speed depends on the pad capacitance, which is an estimate.</div>`;
+  refreshRunBtn();
 }
 const srcUnitOf=id=>{const c=comps.find(x=>x.id===+id);return c?srcU(c):''};
 function drawSignals(){
@@ -3743,15 +3796,15 @@ let mkEdit=null;
 function openMarkerDialog(m){
   const q=mkPos(m); if(!q)return;
   mkEdit={m,mode:m.mode};
-  document.getElementById('ptitle').textContent=`${m.name} — marker`;
+  document.getElementById('ptitle').textContent=`${m.name} — Marker`;
   const draw=()=>{
     const isX=mkEdit.mode==='x', unit=isX?simRes.xunit:(q.P.f==='ph'?'°':q.P.u);
     const cur=isX?q.x:q.y;
     document.getElementById('pbody').innerHTML=
-      `<div class="prow"><label>place by</label><span class="seg" id="mkMode">
-        <button type="button" data-mm="x"${isX?' class="on"':''}>X value</button>
-        <button type="button" data-mm="y"${!isX?' class="on"':''}>Y value</button></span></div>
-       <div class="prow"><label>${isX?simRes.xname:'level'}</label>
+      `<div class="prow"><label>Place By</label><span class="seg" id="mkMode">
+        <button type="button" data-mm="x"${isX?' class="on"':''}>X Value</button>
+        <button type="button" data-mm="y"${!isX?' class="on"':''}>Y Value</button></span></div>
+       <div class="prow"><label>${isX?simRes.xname.replace(/^./,ch=>ch.toUpperCase()):'Level'}</label>
         <input id="mkVal" value="${isX?fv(cur,'').trim():(q.P.f==='ph'||q.P.u==='dB'?cur.toFixed(3):fv(cur,'').trim())}"><span class="u">${unit}</span></div>
        <div style="font-size:10.5px;color:var(--dim);margin-top:6px;line-height:1.6">
         On <b>${esc(q.s.label)}</b>. ${isX?'The marker reads the trace at this '+esc(simRes.xname)+'.':
@@ -3872,8 +3925,14 @@ function logTicks(a,b){const out=[];for(let e=Math.ceil(a);e<=Math.floor(b);e++)
   drawMaxBtn();
   /* resize the pane by its top edge */
   const hd=document.getElementById('sphandle'); let rz=null;
-  hd.addEventListener('mousedown',e=>{rz={y:e.clientY,h:pane.getBoundingClientRect().height};e.preventDefault()});
+  hd.addEventListener('mousedown',e=>{
+    /* left button only: a right-click opens the browser's context menu and we
+       never see its mouseup, so the pane would then follow the cursor freely */
+    if(e.button!==0)return;
+    rz={y:e.clientY,h:pane.getBoundingClientRect().height};e.preventDefault()});
   window.addEventListener('mousemove',e=>{if(!rz)return;
+    /* released somewhere we could not hear it (a menu, another window) */
+    if(!(e.buttons&1)){saveSimSize();rz=null;return}
     pane.style.setProperty('--sph',spClamp(rz.h-(e.clientY-rz.y))+'px'); render(); drawPlot()});
   window.addEventListener('mouseup',()=>{if(rz){saveSimSize()}rz=null});
   window.addEventListener('keydown',e=>{if(e.key==='F5'){e.preventDefault();runAnalysis()}});
