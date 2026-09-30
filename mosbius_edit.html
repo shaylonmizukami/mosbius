@@ -183,8 +183,13 @@
   #spbar .seg{flex:0 0 auto}
   /* the pane wears the same wordmark treatment as MOSbius up in the top bar */
   #spbar .brand{margin-right:4px;flex:0 0 auto}
-  #spMax{padding:6px 9px;line-height:0}
-  #spMax svg{display:block}
+  /* The icon has to sit in the same line box its text siblings get, or the button
+     comes out a few px shorter than Probe / Netlist / close: line-height:0 plus a
+     block-level svg makes the 11px glyph the entire content box, where the text
+     buttons get the ~15px strut of the 12px font. Keep the inherited line-height
+     and centre the glyph inside it instead. */
+  #spMax{padding:9px 9px}
+  #spMax svg{vertical-align:middle}
   #spStat{font-family:var(--mono);font-size:10.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #spbody{flex:1;display:flex;min-height:0}
   #spside{width:290px;flex:0 0 290px;overflow-y:auto;border-right:1px solid var(--line);background:var(--panel);padding-bottom:10px}
@@ -203,7 +208,7 @@
   #plread{position:absolute;right:18px;top:14px;background:rgba(15,20,26,.92);border:1px solid #2A3541;
     border-radius:4px;padding:6px 9px;font-family:var(--mono);font-size:10.5px;line-height:1.55;pointer-events:none}
   .pltk{font-family:var(--mono);font-size:9.5px;fill:#6B7A89}
-  #plkeys{position:absolute;right:16px;bottom:30px;font-family:var(--mono);font-size:9.5px;color:#3D4956;pointer-events:none}
+  #plkeys{position:absolute;right:16px;bottom:30px;font-family:var(--mono);font-size:9.5px;color:#d0d7de;opacity:.55;pointer-events:none}
   .spnote{padding:4px 12px 6px;font-size:10.5px;color:var(--dim);line-height:1.55}
   #spside select{flex:1;min-width:0;max-width:170px}
   #spside .u{font-family:var(--mono);font-size:10px;color:var(--dim);width:18px}
@@ -212,6 +217,12 @@
   .sig:hover{background:#1A212A} .sig input{margin:0}
   .sig .nm{color:var(--text)} .sig.on .nm{color:var(--ink)}
   .sig .ms{margin-left:auto;color:var(--dim);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
+  .mdel{margin-left:6px;color:var(--dim);cursor:pointer;font-size:10px} .mdel:hover{color:var(--bad)}
+  .merr{padding:2px 12px;font-family:var(--mono);font-size:10px;color:var(--bad)}
+  .mathadd{display:flex;gap:6px;padding:6px 12px 2px}
+  .mathadd input{flex:1;min-width:0;font-family:var(--mono);font-size:11px;background:#0E141A;color:var(--ink);
+    border:1px solid var(--line);border-radius:3px;padding:4px 6px}
+  .mathadd button{padding:2px 9px}
   .frow{display:flex;align-items:center;gap:8px;padding:3px 12px}
   .frow label{flex:1;font-size:11.5px;color:var(--text)}
   .frow input{width:82px;font-family:var(--mono);font-size:11px;background:#0E141A;color:var(--ink);
@@ -478,10 +489,10 @@ T('pmos_currentmirror_array','pMOS mirror array','Current mirrors','pMOS array',
 
 /* ---- OTAs ---- */
 T('ota_nmos','OTA nMOS','Amplifiers','OTA_N',
-  [['inp',32,-60,-20,'l'],['inn',33,-60,20,'l'],['out',34,80,0,'r'],['biasn',19,0,80,'b']],
+  [['inp',32,-60,-20,'l'],['inn',33,-60,20,'l'],['out',34,80,0,'r'],['biasn',19,-40,60,'l']],
   ()=>ota('biasn',false),[-72,-56,92,100]),
 T('ota_pmos','OTA pMOS','Amplifiers','OTA_P',
-  [['inp',56,-60,-20,'l'],['inn',55,-60,20,'l'],['out',54,80,0,'r'],['biasp',68,0,-80,'t']],
+  [['inp',56,-60,-20,'l'],['inn',55,-60,20,'l'],['out',54,80,0,'r'],['biasp',68,-40,-60,'l']],
   ()=>ota('biasp',true),[-72,-100,92,56]),
 
 /* ---- supply taps ---- */
@@ -649,13 +660,21 @@ function mirror(type,outs){
    In OTA_nMOS that tail is an nMOS with its source at ground, so the pin belongs
    at the bottom. In OTA_pMOS the tail is a pMOS with its source at VDD, so it
    belongs at the top. Read out of OTA_nMOS.asc / OTA_pMOS.asc. */
+/* OTA symbol: the amplifier triangle plus its tail transistor, so it is plain
+   that the bias pin (19 / 68) is the tail's gate.
+   nMOS OTA: tail below, source to ground. pMOS OTA: tail above, source to VDD. */
 function ota(bias,up){
+  const sg=up?-1:1, ty=60*sg;
   let d=P('M-34,-42 L-34,42 L52,0 Z',{f:'#101820'});
-  d+=TX(-22,-9,'+',{z:13,c:ink,a:'start'});
-  d+=TX(-22,22,'\u2212',{z:13,c:ink,a:'start'});
+  d+=P('M-28,-20 h8 M-24,-24 v8',{w:1.4})+P('M-28,20 h8',{w:1.4});   // + and - as strokes
   d+=P('M-60,-20 H-34')+P('M-60,20 H-34')+P('M52,0 H80');
-  d+=up? P('M0,-25 V-80') : P('M0,25 V80');
-  d+=TX(12,up?-64:64,bias,{z:8.5,a:'start'});
+  /* tail device under (over) the triangle; the bias pin comes straight in to its gate */
+  d+=`<g transform="translate(0,${ty})${up?' scale(1,-1)':''}">${mos(up?'p':'n',0.5,false)}</g>`;
+  const edge=42-34*42/86;                          // where x=0 meets the triangle's edge
+  d+=P(`M0,${sg*edge} V${sg*40}`);                 // tail drain into the amplifier
+  d+=P(`M-40,${ty} H-20`);                         // bias pin lead to the gate
+  d+=up?VDDG(0,-80):GND(0,80);
+  d+=TX(10,ty+3,'2x',{z:8,c:'var(--accent)',a:'start'});
   return d;
 }
 const BY=Object.fromEntries(LIB.map(c=>[c.k,c]));
@@ -712,7 +731,7 @@ const pinKey=(c,i)=>'p'+c.id+'_'+i;
    Undo / redo. Snapshots are cheap (a few kB) and far less bug-prone than
    trying to invert every edit operation.
    ========================================================================== */
-const SCHEMA=2;
+const SCHEMA=3;
 function snapshot(){
   ensureNames();
   return JSON.stringify({v:SCHEMA,comps,segs,busOf,alias,uid,nextNet,nameOfPin});
@@ -734,7 +753,8 @@ const GRIDFIX={
   pmos_currentmirror_array:[[110,80,120,80],[220,80,240,80],[330,80,360,80],
                             [440,80,480,80],[550,80,600,80]]
 };
-function migrate(o){
+function migrate(o){ return migrateV3(migrateV2(o)); }
+function migrateV2(o){
   if((o.v||1)>=2 || !Array.isArray(o.comps) || !Array.isArray(o.segs)) return o;
   const sg=o.segs, add=[];
   o.comps.forEach(c=>{
@@ -753,6 +773,27 @@ function migrate(o){
   o.v=2;
   if(add.length) setTimeout(()=>toast(add.length+' pin'+(add.length>1?'s':'')
     +' moved onto the grid — short links added'),400);
+  return o;
+}
+/* ---------- schema 2 -> 3 ----------
+   The OTA bias pin moved from under the triangle (0,±80) to the left of the new
+   tail transistor (-40,±60), so the gate lead is straight. A wire that ended on
+   the old spot gets an L-shaped link to the new pin; untouched pins get nothing. */
+const OTAFIX={ota_nmos:[[0,80],[-40,80],[-40,60]], ota_pmos:[[0,-80],[-40,-80],[-40,-60]]};
+function migrateV3(o){
+  if((o.v||1)>=3 || !Array.isArray(o.comps) || !Array.isArray(o.segs)) return o;
+  const sg=o.segs, add=[];
+  o.comps.forEach(c=>{
+    const path=OTAFIX[c.key]; if(!path)return;
+    const a=xf(c,...path[0]);
+    const used=sg.some(s=>(Math.abs(s.x1-a.x)<EPS&&Math.abs(s.y1-a.y)<EPS)
+                        ||(Math.abs(s.x2-a.x)<EPS&&Math.abs(s.y2-a.y)<EPS)||onSeg(a.x,a.y,s));
+    if(!used)return;
+    for(let i=0;i<path.length-1;i++){const p=xf(c,...path[i]), q=xf(c,...path[i+1]);
+      add.push({x1:p.x,y1:p.y,x2:q.x,y2:q.y})}
+  });
+  sg.push(...add); o.v=3;
+  if(add.length) setTimeout(()=>toast('OTA bias pin moved to the tail gate — links added to keep your wiring'),400);
   return o;
 }
 function restore(s){
@@ -851,9 +892,18 @@ function nets(){
      what the exporter writes — an alias if one has been set, else the id.
      busOf and alias are keyed by id, so renaming a net keeps its bus. */
   const fresh={};
+  /* When a net is split (a wire deleted), its pins still carry the old id on
+     BOTH halves. Only one half may keep it, or the two halves would share a
+     name, a bus and a simulator node: a short the user never drew. The bigger
+     half claims first and keeps the id (with its bus and alias); the other takes
+     its next inherited id, or a fresh one. */
+  const taken=new Set();
+  out.slice().sort((a,b)=>b.keys.length-a.keys.length).forEach(n=>{
+    const old=[...new Set(n.keys.map(k=>nameOfPin[k]).filter(Boolean))].sort((a,b)=>+a.slice(3)-+b.slice(3));
+    n.id=old.find(x=>!taken.has(x))||('net'+(nextNet++));
+    taken.add(n.id);
+  });
   out.forEach(n=>{
-    const old=n.keys.map(k=>nameOfPin[k]).filter(Boolean).sort((a,b)=>+a.slice(3)-+b.slice(3));
-    n.id=old[0]||('net'+(nextNet++));
     /* A label names the net outright, ahead of any alias: it is the more explicit
        statement of intent and it is the one thing about the net the user can
        actually see on the sheet. Two DIFFERENT names landing on one node is a
@@ -3088,14 +3138,23 @@ const UNITDEV={n:'w=8u l=0.5u ad=4p as=4p pd=17u ps=17u', p:'w=24u l=0.5u ad=12p
 
 /* Settings a user may want to change. cpad: every chip pad on a net adds this
    much capacitance to ground (pad + ESD + switch junctions + PCB + header).
-   60 pF reproduces the ~0.9 MHz follower bandwidth measured on the OTA. */
-const SIMDEF={ana:'tran', vdd:'2.5', cpadOn:true, cpad:'60p',
+   13 pF is fitted to the OTA follower's measured sine response (Board 1,
+   2026-09-27): single pole at 3.1 MHz with a x10 probe (~12 pF) on the output,
+   reproduced here with 13 pF per pad plus a 12 pF capacitor for the probe.
+   (An earlier 60 pF came from a step test spoiled by a x10 probe used as the
+   generator lead.) */
+/* cbus: extra capacitance of a bus (its 65 switch junctions and wiring), added
+   once per bus in use. 15 pF from the same follower routed through a bus:
+   the pole moved from 3.1 MHz (external jumper) to ~2.3 MHz. */
+const SIMDEF={ana:'tran', vdd:'2.5', cpadOn:true, cpad:'13p', cbus:'15p',
   dc:{src:null,from:'0',to:'2.5',step:'10m',step2On:false,src2:null,from2:'0.6',to2:'1.2',step2:'0.2'},
   ac:{mode:'resp',src:null,probe:null,f1:'1',f2:'100M',ppd:'20'},
   tran:{tstop:'20u',tstart:'0',icNode:'',icV:''}};
 let SIM=JSON.parse(JSON.stringify(SIMDEF));
 try{const o=JSON.parse(localStorage.getItem('mosbius.sim.v2')||'null');
-  if(o)SIM={...SIM,...o,dc:{...SIM.dc,...o.dc},ac:{...SIM.ac,...o.ac},tran:{...SIM.tran,...o.tran}}}catch(e){}
+  if(o)SIM={...SIM,...o,dc:{...SIM.dc,...o.dc},ac:{...SIM.ac,...o.ac},tran:{...SIM.tran,...o.tran}};
+  if(SIM.cpad==='60p')SIM.cpad=SIMDEF.cpad;       // the old, superseded default
+}catch(e){}
 const saveSim=()=>{try{localStorage.setItem('mosbius.sim.v2',JSON.stringify(SIM))}catch(e){}};
 
 let simRes=null;                     // last result
@@ -3220,6 +3279,11 @@ function spiceNetlist(ana){
     N.forEach(n=>{const k=sn(canon(n)); if(k==='0'||k==='vdd')return;
       (pads[k]=pads[k]||new Set()); n.onchip.forEach(m=>pads[k].add(m.pcb))});
     Object.entries(pads).forEach(([k,set])=>{if(set.size)L.push(`cpad_${k} ${k} 0 ${nf(pv(SIM.cpad)*set.size)}`)});
+    /* one bus capacitance per bus in use, on the node that bus carries */
+    const onBus={};
+    chipNets(N).filter(busNeeded).forEach(n=>{const b=netBus(n); const k=sn(canon(n));
+      if(b&&k!=='0'&&k!=='vdd')onBus[b]=k});
+    Object.entries(onBus).forEach(([b,k])=>L.push(`cbus${b} ${k} 0 ${nf(SIM.cbus||SIMDEF.cbus)}`));
   }
   return {L,devMap,back,warn,srcs,sn,node,probes};
 }
@@ -3303,7 +3367,7 @@ async function runAnalysis(kind){
   if(!r||!r.data||!r.data.length||(errs.length&&!r.numPoints)){
     simError((errs.length?errs:['ngspice returned no data.']).concat(['','(the netlist is under "Netlist")']),text);return}
   try{ const res=ana.loop?loopResult(r,rI,ana,ctx):parseResult(r,ana,ctx); res.netlist=text; res.warn=ctx.warn.concat(errs);
-    simRes=res;
+    simRes=res; applyMath();
     if(res.kind==='op'){opRes=res.op; showOp=true; document.getElementById('bOp').classList.add('on'); renderOp()}
     else autoProbe();
   }catch(e){simError(['Could not read the result: '+e.message],text);return}
@@ -3537,9 +3601,10 @@ function drawSettings(){
   document.getElementById('spModel').innerHTML=`
     ${fld('vdd','Chip Supply','V')}
     <label class="frow sw"><input type="checkbox" data-sf="cpadOn"${SIM.cpadOn?' checked':''}> <span>Pad + Board Capacitance</span></label>
-    ${SIM.cpadOn?fld('cpad','… Per Pad','F'):''}
-    <div class="spnote">ngspice with BSIM3 models fitted to measurements of this chip. DC and gain are
-      close; speed depends on the pad capacitance, which is an estimate.</div>`;
+    ${SIM.cpadOn?fld('cpad','… Per Pad','F')+fld('cbus','… Per Bus','F'):''}
+    <div class="spnote">ngspice with BSIM3 models fitted to measurements of this chip (DC, gain, and
+      pad capacitance from a measured follower bandwidth). To compare with a scope reading, put a
+      12 pF capacitor where your ×10 probe goes.</div>`;
   refreshRunBtn();
 }
 const srcUnitOf=id=>{const c=comps.find(x=>x.id===+id);return c?srcU(c):''};
@@ -3552,7 +3617,75 @@ function drawSignals(){
     const s=simRes.series.find(x=>x.key===k), on=!!probe[k];
     return `<label class="sig${on?' on':''}"><input type="checkbox" data-sig="${esc(k)}"${on?' checked':''}>
       <span class="chip" style="background:${on?col[k]:'transparent'};border:1px solid ${col[k]}"></span>
-      <span class="nm">${esc(s.label)}</span><span class="ms">${on?esc(measure1(s)):''}</span></label>`}).join('');
+      <span class="nm">${esc(s.label)}</span><span class="ms">${on?esc(measure1(s)):''}</span>${
+      s.math?`<span class="mdel" data-mdel="${s.math}" title="remove">✕</span>`:''}</label>`}).join('')+
+    (SIM.math||[]).filter(m=>m.err).map(m=>`<div class="merr">✖ ${esc(m.expr)}: ${esc(m.err)}
+      <span class="mdel" data-mdel="${m.id}">✕</span></div>`).join('')+
+    `<div class="mathadd"><input id="mathIn" placeholder="math, e.g. OUTA - OUTB" spellcheck="false">
+      <button type="button" id="mathAdd">+</button></div>
+     <div class="spnote">Use the names above, numbers, + − * / and ( ). Also V(name), I(V1).</div>`;
+}
+/* ---------- math traces ----------
+   An expression over the result's own signals, e.g. OUTA - OUTB, (OUTA-OUTB)/2,
+   I(V1)*1k. Evaluated point by point on real results (transient, DC; per curve
+   for a stepped sweep) and on the complex values for AC, so a difference of two
+   AC outputs has the right magnitude and phase. Stored as text, so it re-applies
+   after every run. */
+function mathParse(txt){
+  const tk=[]; const re=/\s*(?:(\d*\.?\d+(?:[eE][-+]?\d+)?[fpnumkKMgG]?)|([VvIi]\([^)]+\))|([A-Za-z_][\w.]*)|(\S))/g; let m;
+  while((m=re.exec(txt))&&m[0].trim()){ if(m[1])tk.push({t:'n',v:pv(m[1])}); else if(m[2]||m[3])tk.push({t:'s',v:m[2]||m[3]});
+    else if('+-*/()'.includes(m[4]))tk.push({t:m[4]}); else throw new Error(`"${m[4]}" not understood`) }
+  let i=0; const pk=()=>tk[i]&&tk[i].t, nx=()=>tk[i++];
+  const expr=()=>{let a=term(); while(pk()==='+'||pk()==='-'){const o=nx().t; a={op:o,a,b:term()}} return a};
+  const term=()=>{let a=fac(); while(pk()==='*'||pk()==='/'){const o=nx().t; a={op:o,a,b:fac()}} return a};
+  const fac=()=>{const t=nx(); if(!t)throw new Error('ends too early');
+    if(t.t==='-')return {op:'neg',a:fac()}; if(t.t==='n')return {n:t.v}; if(t.t==='s')return {s:t.v};
+    if(t.t==='('){const e=expr(); if(!tk[i]||tk[i].t!==')')throw new Error('missing )'); i++; return e}
+    throw new Error(`unexpected "${t.t}"`)};
+  const e=expr(); if(i<tk.length)throw new Error(`unexpected "${tk[i].t==='s'?tk[i].v:tk[i].t}"`); return e;
+}
+function applyMath(){
+  if(!simRes||!simRes.series||simRes.kind==='op')return;
+  simRes.series=simRes.series.filter(s=>!s.math);
+  const ac=simRes.kind==='ac', base=simRes.series;
+  const find=(name,fam)=>{const n=name.trim().replace(/^[Vv]\((.+)\)$/,'$1').toLowerCase();
+    return base.find(s=>(s.label.toLowerCase()===n||s.label.toLowerCase()===name.trim().toLowerCase())&&(s.famI??null)===fam)};
+  (SIM.math||[]).forEach(m=>{
+    try{
+      const ast=mathParse(m.expr), names=[]; const walk=a=>{if(a.s)names.push(a.s); if(a.a)walk(a.a); if(a.b)walk(a.b)}; walk(ast);
+      if(!names.length)throw new Error('uses no signal');
+      const fams=[...new Set(base.filter(s=>names.some(n=>find(n,s.famI??null)===s)).map(s=>s.famI??null))];
+      const unitOf=a=>a.s?find(a.s,fams[0]).unit:a.n!==undefined?'':a.op==='neg'?unitOf(a.a):
+        (a.op==='+'||a.op==='-')?(unitOf(a.a)||unitOf(a.b)):(a.op==='*'&&(unitOf(a.a)===''||unitOf(a.b)==='')?(unitOf(a.a)||unitOf(a.b)):'');
+      (fams.length?fams:[null]).forEach(fam=>{
+        names.forEach(n=>{if(!find(n,fam))throw new Error(`no signal called "${n}"`)});
+        const len=find(names[0],fam).y.length;
+        const cx=(s,k)=>{const r=Math.pow(10,s.y[k]/20), p=s.ph[k]*Math.PI/180; return {re:r*Math.cos(p),im:r*Math.sin(p)}};
+        const ev=(a,k)=>{
+          if(a.n!==undefined)return ac?{re:a.n,im:0}:a.n;
+          if(a.s){const s=find(a.s,fam); return ac?cx(s,k):s.y[k]}
+          if(a.op==='neg'){const v=ev(a.a,k); return ac?{re:-v.re,im:-v.im}:-v}
+          const x=ev(a.a,k), y=ev(a.b,k);
+          if(!ac)return a.op==='+'?x+y:a.op==='-'?x-y:a.op==='*'?x*y:x/y;
+          if(a.op==='+')return {re:x.re+y.re,im:x.im+y.im}; if(a.op==='-')return {re:x.re-y.re,im:x.im-y.im};
+          if(a.op==='*')return {re:x.re*y.re-x.im*y.im,im:x.re*y.im+x.im*y.re};
+          const d=y.re*y.re+y.im*y.im||1e-300; return {re:(x.re*y.re+x.im*y.im)/d,im:(x.im*y.re-x.re*y.im)/d};
+        };
+        const vals=[]; for(let k=0;k<len;k++)vals.push(ev(ast,k));
+        const one=find(names[0],fam);
+        simRes.series.push(ac
+          ? {key:'M:'+m.id,label:m.expr,unit:unitOf(ast)||'V',math:m.id,famI:one.famI,fam:one.fam,
+             y:vals.map(z=>20*Math.log10(Math.max(1e-30,Math.hypot(z.re,z.im)))),ph:unwrap(vals.map(z=>Math.atan2(z.im,z.re)*180/Math.PI))}
+          : {key:'M:'+m.id,label:m.expr,unit:unitOf(ast)||'',math:m.id,famI:one.famI,fam:one.fam,y:vals});
+      });
+      m.err=null;
+    }catch(e){m.err=e.message}
+  });
+}
+function addMath(txt){
+  txt=(txt||'').trim(); if(!txt)return;
+  const m={id:Date.now().toString(36),expr:txt}; SIM.math=(SIM.math||[]).concat([m]);
+  applyMath(); if(!m.err)probe['M:'+m.id]=true; saveSim(); drawSignals(); drawPlot();
 }
 function colorMap(){const m={};let i=0;
   if(simRes&&simRes.series)[...new Set(simRes.series.map(s=>s.key))].forEach(k=>{if(probe[k])m[k]=TRC[i++%TRC.length]});
@@ -3835,7 +3968,14 @@ function logTicks(a,b){const out=[];for(let e=Math.ceil(a);e<=Math.floor(b);e++)
     if(e.target.tagName==='SELECT'&&/src/.test(f)){const c=comps.find(x=>x.id===+v);if(c)flashDev(c.id)}
     if(e.target.type==='checkbox'||e.target.tagName==='SELECT')drawSettings();
   });
-  side.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.dataset.sf){e.target.dispatchEvent(new Event('change',{bubbles:true}));runAnalysis()}});
+  side.addEventListener('click',e=>{
+    if(e.target.id==='mathAdd'){addMath(document.getElementById('mathIn').value);return}
+    const d=e.target.closest('[data-mdel]'); if(!d)return; e.preventDefault(); e.stopPropagation();
+    SIM.math=(SIM.math||[]).filter(m=>m.id!==d.dataset.mdel); delete probe['M:'+d.dataset.mdel];
+    applyMath(); saveSim(); drawSignals(); drawPlot();
+  });
+  side.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='mathIn'){e.preventDefault();addMath(e.target.value);return}
+    if(e.key==='Enter'&&e.target.dataset.sf){e.target.dispatchEvent(new Event('change',{bubbles:true}));runAnalysis()}});
   /* plot: wheel zooms the time/sweep axis around the cursor (proportional to the
      scroll distance, so a trackpad swipe doesn't jump to the limit), drag pans,
      double-click shows everything */
@@ -3917,8 +4057,9 @@ function simStale(){if(simRes&&!simRes.err&&!simRes.stale){simRes.stale=true;
 let netSig=null;
 function netsChanged(N){
   const sig=N.map(n=>n.name+'='+n.keys.slice().sort().join(',')).sort().join('|');
-  if(netSig!==null&&sig!==netSig&&(Object.values(probe).some(Boolean)||Object.keys(MK).length)){
-    probe={}; MK={}; mkSel=null;
+  if(netSig!==null&&sig!==netSig&&(Object.entries(probe).some(([k,v])=>v&&!k.startsWith('M:'))||Object.keys(MK).length)){
+    /* math traces are defined by name, so they stay; only net ticks and markers go */
+    probe=Object.fromEntries(Object.entries(probe).filter(([k,v])=>v&&k.startsWith('M:'))); MK={}; mkSel=null;
     if(paneOpen()){drawSignals();drawPlot()}
   }
   netSig=sig;
