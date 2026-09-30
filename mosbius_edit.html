@@ -2304,6 +2304,12 @@ function pasteClip(){
 
 window.addEventListener('keydown',e=>{
   if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))return;
+  /* A dialog is in front of the sheet, so the sheet's keys are not what the user
+     is aiming at: without this, ctrl+V pasted behind the export dialog, t opened
+     the note dialog on top of it, and h put the shortcut list underneath it.
+     Escape and Enter never reach here — the modal handler takes them in the
+     capture phase and stops them. */
+  if(openModal())return;
   const k=e.key.toLowerCase(), mod=e.metaKey||e.ctrlKey;
   /* h opens the reference for whichever surface the pointer is over */
   if(k==='h'&&!mod){e.preventDefault();
