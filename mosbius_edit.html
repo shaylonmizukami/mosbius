@@ -32,16 +32,21 @@
      otherwise win the background, so each of these needs its own rule.
      Pink = the simulation pane is open, or the chip was programmed;
      light purple = connections.json was downloaded. */
+  /* The dark rose background read as maroon next to --bad, so it is lifted and
+     shifted toward magenta: clearly pink rather than an error colour. */
   button.go.on,
-  button.go.prog{background:#3A1C2B;border-color:#F7A8C4;color:#FCDDE9}
-  button.go.dl{background:#281E42;border-color:#C3A9F7;color:#E5DBFC}
+  button.go.prog{background:#54314A;border-color:#FFBCDC;color:#FFE6F2}
   .sep{width:1px;height:22px;background:var(--line);margin:0 5px;flex:0 0 auto}
   .spacer{flex:1 0 auto}
   aside{background:var(--panel);overflow-y:auto}
   #left{border-right:1px solid var(--line)}
   #right{border-left:1px solid var(--line);display:flex;flex-direction:column}
-  .ph{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--dim);
+  .ph{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--accent);
       padding:12px 12px 5px;text-transform:uppercase}
+  /* A rule above each heading, so it is obvious which fields belong to which
+     section rather than leaving one grey run of rows. */
+  #spside>.ph{border-top:1px solid var(--line);margin-top:6px}
+  #spside>.ph:first-child{border-top:none;margin-top:0}
   .cat{border-bottom:1px solid var(--panel2)}
   .cathead{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;
       font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--dim);
@@ -63,8 +68,39 @@
   svg{display:block;width:100%;height:100%}
   #hint{position:absolute;left:14px;bottom:11px;font-family:var(--mono);font-size:11px;
         color:var(--dim);pointer-events:none;line-height:1.7}
-  #zoom{position:absolute;right:12px;bottom:11px;font-family:var(--mono);font-size:10.5px;
+  #zoom{position:absolute;right:38px;bottom:11px;font-family:var(--mono);font-size:10.5px;
         color:var(--dim);pointer-events:none}
+  /* Keyboard reference. Each surface carries a ? in its corner rather than a strip
+     of keys across it. The popover is absolutely positioned inside a surface that
+     is already position:relative, so opening one reflows nothing, and it is
+     non-modal, so a shortcut can be tried while the list is still up. */
+  .qbtn{position:absolute;z-index:6;width:19px;height:19px;padding:0;border-radius:50%;
+    font-family:var(--mono);font-size:11px;line-height:17px;text-align:center;color:var(--dim)}
+  .qbtn:hover{color:var(--ink);border-color:#3A4654}
+  .qbtn.on{color:var(--ink);border-color:var(--accent);background:#123640}
+  .kpop{position:absolute;z-index:7;display:none;width:min(290px,calc(100% - 28px));
+    max-height:calc(100% - 58px);overflow-y:auto;background:rgba(15,20,26,.97);
+    border:1px solid #2A3541;border-radius:6px;padding:10px 12px 12px;
+    box-shadow:0 12px 30px rgba(0,0,0,.55)}
+  .kpop.show{display:block}
+  .kpop h4{margin:0;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--accent);font-weight:400}
+  .kpop h5{margin:9px 0 3px;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--dim);font-weight:400}
+  .kpop .kr{display:flex;gap:9px;align-items:baseline;font-size:11px;line-height:1.65}
+  .kpop .kk{flex:0 0 98px;font-family:var(--mono);color:var(--ink)}
+  .kpop .kd{flex:1;color:var(--text)}
+  /* A ? in a section heading rather than floating in a corner. Its flyout lives in
+     the plot, not in #spside: that panel scrolls, and an absolute child of it would
+     scroll away and be clipped by the panel's edge. */
+  .phq{display:flex;align-items:center;gap:6px}
+  .qbtn.qinline{position:static;width:15px;height:15px;line-height:13px;font-size:9.5px}
+  /* the side panel's flyouts all open in the same spot; only one is ever open */
+  .panelpop{left:14px;top:14px;width:min(340px,calc(100% - 28px))}
+  .panelpop p{margin:6px 0 0;font-size:11px;line-height:1.65;color:var(--text)}
+  .panelpop p:first-of-type{margin-top:4px}
+  #hKeys{right:12px;bottom:9px}  #hPop{right:12px;bottom:36px}
+  #plKeys{right:14px;bottom:24px} #plPop{right:14px;bottom:50px}
   #meter{padding:12px;border-bottom:1px solid var(--line)}
   #meter .top{display:flex;justify-content:space-between;align-items:baseline;
     font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-bottom:8px}
@@ -135,6 +171,28 @@
   #picolog.on{display:block}
   #cardfoot{padding:11px 16px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--line)}
 
+  /* Notifications. A bottom-anchored column above everything else: appending a new
+     one puts it at the bottom and the older ones are carried up by ordinary flow.
+     The incoming toast animates its own height open, so that carry-up is a slide
+     rather than a jump, and each toast owns its dismissal timer — a new arrival
+     never resets or pauses the one above it. */
+  #toasts{position:fixed;right:18px;bottom:18px;z-index:300;display:flex;
+    flex-direction:column;align-items:flex-end;pointer-events:none}
+  .toast{max-width:330px;margin-top:8px;padding:9px 13px;overflow:hidden;
+    background:#1B2430;border:1px solid #33414F;border-left:3px solid var(--accent);
+    border-radius:5px;box-shadow:0 8px 24px rgba(0,0,0,.5);
+    font-size:11.5px;line-height:1.5;color:var(--ink);
+    animation:toastIn .26s cubic-bezier(.2,.8,.2,1) both}
+  .toast.warn{border-left-color:#D6A653}
+  .toast.bad{border-left-color:var(--bad)}
+  /* Leaving is opacity only. Collapsing the box instead made the toast shrink
+     towards its own bottom edge, which read as sliding away; and since the one
+     that expires is always the topmost, removing it moves nothing below it. */
+  .toast.out{animation:toastOut .34s ease-out forwards}
+  @keyframes toastIn{
+    from{opacity:0;max-height:0;margin-top:0;padding-top:0;padding-bottom:0;transform:translateY(8px)}
+    to{opacity:1;max-height:10em;margin-top:8px;padding-top:9px;padding-bottom:9px;transform:none}}
+  @keyframes toastOut{from{opacity:1}to{opacity:0}}
   #pmodal{position:fixed;inset:0;background:rgba(5,8,11,.84);display:none;
     align-items:center;justify-content:center;z-index:60}
   #pmodal.show{display:flex}
@@ -150,6 +208,13 @@
     border:1px solid var(--line);border-radius:3px;padding:5px 8px;min-width:0}
   .prow input:focus{outline:none;border-color:var(--accent)}
   .prow .u{font-family:var(--mono);font-size:10px;color:var(--dim);flex:0 0 34px}
+  /* The source dialog shows a different number of fields per waveform. #pmodal
+     centres the card, so a shorter mode would otherwise move the waveform buttons
+     and every row under them. Pad the field list out to the tallest mode with
+     spacer rows and reserve the note's lines, so switching waveform changes only
+     the labels — nothing moves. */
+  .prow.pghost{visibility:hidden}
+  .srcnote{min-height:4.8em}
 
   #tmodal,#lmodal{position:fixed;inset:0;background:rgba(5,8,11,.84);display:none;
     align-items:center;justify-content:center;z-index:60}
@@ -180,7 +245,23 @@
   #simpane.max #sphandle{display:none}
   #spbar{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line);
     background:var(--panel);flex:0 0 auto}
-  #spbar .seg{flex:0 0 auto}
+  /* The analysis picker is its own column to the left of the settings, and a stack
+     of independent choices rather than a joined segmented control, so each one
+     keeps a border on all four edges. */
+  #spanacol{flex:0 0 var(--spaw,132px);width:var(--spaw,132px);
+    background:var(--panel);overflow-y:auto}
+  #spanacol .ph{padding:12px 9px 5px}
+  #spAna{display:flex;flex-direction:column;gap:4px;padding:0 9px 9px}
+  #spAna button{width:100%;text-align:left;border-radius:4px;padding:6px 8px;
+    overflow:hidden;text-overflow:ellipsis}
+  /* AC's two measurements are choices within AC, so they hang off it: indented,
+     smaller, behind a guide rule, and dimmed while AC is not the one selected. */
+  #spAna .subs{display:flex;flex-direction:column;gap:3px;margin-left:9px;
+    padding-left:8px;border-left:1px solid var(--line)}
+  #spAna .subs button{font-size:10.5px;padding:4px 7px;color:var(--dim)}
+  /* the id selector above outranks button.on, so the lit colour has to be restated */
+  #spAna .subs button.on{color:#DCF7FB}
+  #spAna .subs.off{opacity:.5}
   /* the pane wears the same wordmark treatment as MOSbius up in the top bar */
   #spbar .brand{margin-right:4px;flex:0 0 auto}
   /* The icon has to sit in the same line box its text siblings get, or the button
@@ -192,15 +273,29 @@
   #spMax svg{vertical-align:middle}
   #spStat{font-family:var(--mono);font-size:10.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #spbody{flex:1;display:flex;min-height:0}
-  #spside{width:290px;flex:0 0 290px;overflow-y:auto;border-right:1px solid var(--line);background:var(--panel);padding-bottom:10px}
+  #spside{flex:0 0 var(--spsw,290px);width:var(--spsw,290px);
+    overflow-y:auto;background:var(--panel);padding-bottom:10px}
+  /* The divider between the pane's columns doubles as its grab strip: a 1px rule
+     drawn down the middle of 7px of pointer target, so it looks like the border it
+     replaces but is wide enough to catch. */
+  .spvh{flex:0 0 7px;cursor:col-resize;z-index:3;
+    background:linear-gradient(to right,transparent 3px,var(--line) 3px,var(--line) 4px,transparent 4px)}
+  .spvh:hover,.spvh.on{background:linear-gradient(to right,transparent 3px,var(--accent) 3px,var(--accent) 4px,transparent 4px)}
   #spplot{flex:1;position:relative;min-width:0}
   #pl{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}
   #plmsg{position:absolute;inset:0;pointer-events:none;overflow:auto}
   #plmsg .optab,#plmsg .plerr{pointer-events:auto}
+  /* A flex container drops the whitespace between a text run and an inline element,
+     because each becomes its own flex item. The message therefore goes in a single
+     child, where normal inline layout keeps its spaces. */
   .plempty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:12.5px}
+  .plempty>span{max-width:320px;text-align:center;line-height:1.6}
   .plerr{margin:14px;padding:10px 12px;border:1px solid #5A2B2B;background:#1A1012;color:#F0B2AE;
     font-family:var(--mono);font-size:11px;line-height:1.6;user-select:text;white-space:pre-wrap}
-  .optab{padding:10px 16px;font-family:var(--mono);font-size:11px;columns:260px;column-gap:28px}
+  /* One column whatever the pane's width: the name/value pairs keep the same
+     reading order (node voltages, then supply) instead of reflowing into columns,
+     and the max-width stops space-between flinging the values across the pane. */
+  .optab{padding:10px 16px;font-family:var(--mono);font-size:11px;max-width:320px}
   .optab>div{display:flex;justify-content:space-between;gap:10px;padding:2px 0;break-inside:avoid}
   .optab span{color:var(--dim)} .optab b{color:var(--ink);font-weight:500}
   .optab .oph{color:var(--accent);letter-spacing:.1em;text-transform:uppercase;font-size:9.5px;padding-top:8px}
@@ -208,7 +303,6 @@
   #plread{position:absolute;right:18px;top:14px;background:rgba(15,20,26,.92);border:1px solid #2A3541;
     border-radius:4px;padding:6px 9px;font-family:var(--mono);font-size:10.5px;line-height:1.55;pointer-events:none}
   .pltk{font-family:var(--mono);font-size:9.5px;fill:#6B7A89}
-  #plkeys{position:absolute;right:16px;bottom:30px;font-family:var(--mono);font-size:9.5px;color:#d0d7de;opacity:.55;pointer-events:none}
   .spnote{padding:4px 12px 6px;font-size:10.5px;color:var(--dim);line-height:1.55}
   #spside select{flex:1;min-width:0;max-width:170px}
   #spside .u{font-family:var(--mono);font-size:10px;color:var(--dim);width:18px}
@@ -218,7 +312,15 @@
   .sig .nm{color:var(--text)} .sig.on .nm{color:var(--ink)}
   .sig .ms{margin-left:auto;color:var(--dim);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
   .mdel{margin-left:6px;color:var(--dim);cursor:pointer;font-size:10px} .mdel:hover{color:var(--bad)}
-  .merr{padding:2px 12px;font-family:var(--mono);font-size:10px;color:var(--bad)}
+  /* One row per expression, newest directly under the box, older ones pushed down. */
+  .mrow{display:flex;gap:8px;align-items:baseline;padding:3px 12px;
+    font-family:var(--mono);font-size:10.5px}
+  .mrow .mx{color:var(--ink);white-space:nowrap}
+  .mrow .mv{margin-left:auto;color:var(--dim);text-align:right;min-width:0;
+    overflow:hidden;text-overflow:ellipsis}
+  .mrow.bad{align-items:flex-start}
+  .mrow.bad .mv{color:var(--bad);white-space:normal;overflow:visible}
+  .mrow .mdel{flex:0 0 auto}
   .mathadd{display:flex;gap:6px;padding:6px 12px 2px}
   .mathadd input{flex:1;min-width:0;font-family:var(--mono);font-size:11px;background:#0E141A;color:var(--ink);
     border:1px solid var(--line);border-radius:3px;padding:4px 6px}
@@ -263,7 +365,9 @@
     <button id="bExp" class="go" title="export the bus and pin connections that program the chip (connections.json)">Export Chip Connections</button>
   </div>
   <aside id="left"></aside>
-  <div id="wrap"><svg id="cv"></svg><div id="hint"></div><div id="zoom"></div></div>
+  <div id="wrap"><svg id="cv"></svg><div id="hint"></div><div id="zoom"></div>
+    <button id="hKeys" class="qbtn" title="keyboard shortcuts (h)">?</button>
+    <div id="hPop" class="kpop"></div></div>
   <aside id="right">
     <div id="meter">
       <div class="top"><span>BUS ALLOCATION</span><span class="cnt" id="mCnt">0/10</span></div>
@@ -276,7 +380,6 @@
     <div id="sphandle" title="drag to resize"></div>
     <div id="spbar">
       <span class="brand">Simulation</span>
-      <span class="seg" id="spAna"><button type="button" data-an="op">Op Point</button><button type="button" data-an="dc">DC Sweep</button><button type="button" data-an="ac">AC</button><button type="button" data-an="tran">Transient</button></span>
       <button id="spRun" class="go" title="F5">Run ▶</button>
       <span id="spStat"></span><span class="spacer"></span>
       <button id="spProbe" title="click wires on the schematic to show them in the plot">Probe</button>
@@ -284,10 +387,28 @@
       <button id="spMax" title="expand"></button><button id="spX" title="close (Simulate reopens it)">✕</button>
     </div>
     <div id="spbody">
-      <div id="spside"><div class="ph">Settings</div><div id="spSet"></div>
+      <div id="spanacol"><div class="ph">Analysis</div>
+        <div id="spAna"><button type="button" data-an="op">Op Point</button
+          ><button type="button" data-an="dc">DC Sweep</button
+          ><button type="button" data-an="ac">AC</button>
+          <div class="subs" id="acSubs"><button type="button" data-acm="resp">Freq Response</button
+            ><button type="button" data-acm="loop">Loop Gain</button></div
+          ><button type="button" data-an="tran">Transient</button></div></div>
+      <div class="spvh" data-vh="ana" title="drag to resize"></div>
+      <div id="spside">
+        <div class="ph phq">Settings<button id="setKeys" class="qbtn qinline"
+          title="what this analysis does" style="display:none">?</button></div><div id="spSet"></div>
+        <div class="ph phq">Math<button id="mathKeys" class="qbtn qinline"
+          title="how math traces work">?</button></div><div id="spMath"></div>
         <div class="ph">Signals</div><div id="spSig"></div>
-        <div class="ph">Model</div><div id="spModel"></div></div>
-      <div id="spplot"><svg id="pl"></svg><div id="plmsg"></div><div id="plread" style="display:none"></div><div id="plkeys">f fit · m marker · d delta · q edit · del delete · drag markers along the curve, bubbles anywhere</div></div>
+        <div class="ph phq">Model<button id="modKeys" class="qbtn qinline"
+          title="about the device models">?</button></div><div id="spModel"></div></div>
+      <div class="spvh" data-vh="side" title="drag to resize"></div>
+      <div id="spplot"><svg id="pl"></svg><div id="plmsg"></div><div id="plread" style="display:none"></div><button id="plKeys" class="qbtn" title="plot shortcuts (h)">?</button>
+        <div id="plPop" class="kpop"></div>
+        <div id="setPop" class="kpop panelpop"></div>
+        <div id="mathPop" class="kpop panelpop"></div>
+        <div id="modPop" class="kpop panelpop"></div></div>
     </div>
   </div>
   <div id="status">
@@ -300,6 +421,8 @@
     <span id="sSaved"></span>
   </div>
 </div>
+<div id="toasts"></div>
+
 <div id="pmodal"><div id="pcard"><h3 id="ptitle">Properties</h3>
   <div id="pbody"></div>
   <div id="cardfoot"><button id="pOk" class="go">Apply</button><button id="pX">Cancel</button></div>
@@ -690,6 +813,9 @@ let comps=[], segs=[], uid=1;
 /* mode: 'select' (the default) | 'wire' | 'zoom' | 'delete'
    placeRot/placeMir orient the ghost preview before the component is dropped. */
 let mode='select', placeKey=null, placeRot=0, placeMir=0, placeProps=null;
+/* where the pointer last was in world coordinates, and whether it was on the
+   sheet rather than over a panel — a paste lands there */
+let overSheet=false, lastW={x:0,y:0};
 let draw=null;                     // {pts:[[x,y]], elbowH:true}
 let selIds=new Set(), selSegs=new Set();
 let hover=null;                    // {kind:'dev',id} | {kind:'seg',i} under the cursor
@@ -1149,8 +1275,7 @@ function render(){
     : mode==='zoom' ? 'drag a region to zoom into it \u00b7 <b>esc</b> returns to select'
     : mode==='probe' ? 'click a net to probe it \u00b7 click again to remove \u00b7 <b>esc</b> goes back to the simulator'
     : mode==='delete' ? 'click to delete \u00b7 drag a box to clear a region \u00b7 <b>esc</b> returns to select'
-    : 'drag a wire end to re-route it \u00b7 shift-click adds \u00b7 <b>r</b> rotate \u00b7 <b>shift+R</b> mirror \u00b7 '
-      +'<b>q</b> properties \u00b7 <b>l</b> net label \u00b7 <b>t</b> text \u00b7 <b>z</b> zoom \u00b7 <b>ctrl+z</b> undo';
+    : '<b>h</b> for shortcuts';
 }
 
 /* Hide single-instance on-chip devices once placed. Each exists exactly once on
@@ -1906,6 +2031,9 @@ window.addEventListener('mousemove',e=>{
   /* the expanded simulation pane sits on top of the sheet: what is under it is
      not what the cursor is pointing at, so nothing there should light up */
   const overPane=!!(e.target&&e.target.closest&&e.target.closest('#simpane'));
+  overSheet=!overPane&&e.clientX>=r.left&&e.clientX<r.right
+                     &&e.clientY>=r.top&&e.clientY<r.bottom;
+  if(overSheet)lastW=w;
   if(pan){view.x=pan.vx+(e.clientX-pan.x);view.y=pan.vy+(e.clientY-pan.y);render();return}
   if(band){band.x1=w.x;band.y1=w.y;
     if(band.del){const nh=hitTest(w);if(!sameHit(nh,hover))hover=nh}
@@ -2093,13 +2221,100 @@ function flip(){
 function selectAll(){ selIds=new Set(comps.map(c=>c.id));
   selSegs=new Set(segs.map((_,i)=>i)); render(); }
 
+/* ---------- notifications ----------
+   Each call adds its own element with its own timer, so several can be on screen
+   at once: the newest sits at the bottom and the rest are pushed up, each still
+   leaving on its own schedule. Capped so that holding ctrl+V cannot fill the
+   screen — past the cap the oldest is retired early. */
+const TOASTHOLD=3200, TOASTMAX=5;
+function notify(msg,kind){
+  const box=document.getElementById('toasts'); if(!box)return;
+  /* only the ones still counting down count towards the cap: a toast on its way
+     out is still in the DOM, and asking it to leave again does nothing */
+  const live=()=>[...box.children].filter(x=>!x.classList.contains('out'));
+  for(let l=live(); l.length>=TOASTMAX; l=live()){clearTimeout(l[0]._t); l[0].remove()}
+  const el=document.createElement('div');
+  el.className='toast'+(kind?' '+kind:'');
+  el.textContent=msg;
+  box.appendChild(el);
+  el._t=setTimeout(()=>dropToast(el),TOASTHOLD);
+}
+function dropToast(el){
+  if(!el||el.classList.contains('out'))return;
+  clearTimeout(el._t); el.classList.add('out');
+  el.addEventListener('animationend',()=>el.remove(),{once:true});
+  setTimeout(()=>el.remove(),600);          // in case the animation never fires
+}
+
+/* ---------- copy / paste ----------
+   An internal clipboard, not the system one: the schematic is structured data and
+   nothing else would know what to do with it. Positions are stored relative to the
+   top-left of what was copied, so a paste can be dropped under the cursor.
+   On-chip devices exist exactly once on the die (which is why the palette hides
+   them once placed), so pasting one that is already on the sheet is refused and
+   says so. Testbench and annotation parts are unlimited. */
+let clip=null, pasteN=0;
+function copySel(){
+  const cs=comps.filter(c=>selIds.has(c.id));
+  const ss=[...selSegs].map(i=>segs[i]).filter(Boolean);
+  if(!cs.length&&!ss.length){notify('Nothing is selected. Click a part first, then ctrl+C.');return}
+  let x0=Infinity,y0=Infinity;
+  cs.forEach(c=>{x0=Math.min(x0,c.x);y0=Math.min(y0,c.y)});
+  ss.forEach(s=>{x0=Math.min(x0,s.x1,s.x2);y0=Math.min(y0,s.y1,s.y2)});
+  x0=sn(x0); y0=sn(y0);
+  clip={x0,y0,
+    comps:cs.map(c=>({key:c.key,dx:c.x-x0,dy:c.y-y0,r:c.r||0,m:c.m||0,
+                      props:c.props?{...c.props}:null})),
+    segs:ss.map(s=>({x1:s.x1-x0,y1:s.y1-y0,x2:s.x2-x0,y2:s.y2-y0}))};
+  pasteN=0;
+  const bits=[];
+  if(cs.length)bits.push(`${cs.length} part${cs.length===1?'':'s'}`);
+  if(ss.length)bits.push(`${ss.length} wire${ss.length===1?'':'s'}`);
+  toast('copied '+bits.join(' and '));
+}
+function pasteClip(){
+  if(!clip){notify('Nothing copied yet. Select a part and press ctrl+C.');return}
+  pasteN++;
+  /* under the pointer when it is on the sheet, otherwise stepped clear of the
+     original so repeated pastes do not pile up on each other */
+  const at=overSheet?{x:sn(lastW.x),y:sn(lastW.y)}
+                    :{x:clip.x0+G*2*pasteN,y:clip.y0+G*2*pasteN};
+  const placed=new Set(comps.filter(c=>!isTB(c.key)).map(c=>c.key));
+  const add=[], blocked=[];
+  clip.comps.forEach(o=>{
+    if(!isTB(o.key)&&placed.has(o.key)){blocked.push(BY[o.key].n);return}
+    if(!isTB(o.key))placed.add(o.key);
+    add.push({id:uid++,key:o.key,x:sn(at.x+o.dx),y:sn(at.y+o.dy),r:o.r,m:o.m,
+              ...(o.props?{props:{...o.props}}:{})});
+  });
+  const addSegs=clip.segs.map(s=>({x1:at.x+s.x1,y1:at.y+s.y1,x2:at.x+s.x2,y2:at.y+s.y2}));
+  blocked.forEach(n=>notify(`${n} is already on the sheet. The chip only has one.`,'warn'));
+  if(!add.length&&!addSegs.length)return;
+  comps.push(...add);
+  const base=segs.length; segs.push(...addSegs);
+  /* the paste lands selected, so it can be dragged or rotated straight away */
+  selIds=new Set(add.map(c=>c.id));
+  selSegs=new Set(addSegs.map((_,i)=>base+i));
+  commit(); render();
+  const pb=[];
+  if(add.length)pb.push(`${add.length} part${add.length===1?'':'s'}`);
+  if(addSegs.length)pb.push(`${addSegs.length} wire${addSegs.length===1?'':'s'}`);
+  toast('pasted '+pb.join(' and '));
+}
+
 window.addEventListener('keydown',e=>{
   if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))return;
   const k=e.key.toLowerCase(), mod=e.metaKey||e.ctrlKey;
+  /* h opens the reference for whichever surface the pointer is over */
+  if(k==='h'&&!mod){e.preventDefault();
+    keyPop(kpOpen?null:(overPlot&&paneOpen()?'plot':'sheet'));return}
+  if(e.key==='Escape'&&kpOpen){keyPop(null);return}
   if(e.code==='Space'&&!spaceDown){spaceDown=true;e.preventDefault();applyCursor()}
   if(mod&&k==='z'){e.preventDefault();e.shiftKey?redo():undo();return}
   if(mod&&k==='y'){e.preventDefault();redo();return}
   if(mod&&k==='a'){e.preventDefault();selectAll();return}
+  if(mod&&k==='c'){e.preventDefault();copySel();return}
+  if(mod&&k==='v'){e.preventDefault();pasteClip();return}
   if(mod&&k==='s'){e.preventDefault();saveFile();return}
   if(mod&&k==='o'){e.preventDefault();document.getElementById('fOpen').click();return}
   if(mod)return;
@@ -2151,6 +2366,80 @@ window.addEventListener('keydown',e=>{
 window.addEventListener('keyup',e=>{
   if(e.code==='Space'){spaceDown=false;applyCursor()}
 });
+
+/* ---------- keyboard reference ----------
+   Read off the handlers above and in the pane, and kept in one place so the two
+   popovers cannot drift from what the keys actually do. */
+const KEYHELP={
+  sheet:{title:'Schematic',groups:[
+    ['Tools',[['s / w','select / wire'],['z','zoom to a region'],['esc','back to select'],
+      ['h','this list']]],
+    ['Selection',[['r','rotate'],['shift+R / m','mirror'],['q','properties'],
+      ['l','net label'],['t','text note'],['del','delete'],
+      ['shift+click','add to the selection'],['ctrl+A','select all'],
+      ['ctrl+C / ctrl+V','copy / paste'],
+      ['drag a wire end','re-route that wire']]],
+    ['View',[['f','fit the sheet'],['scroll','zoom at the cursor'],
+      ['space-drag','pan'],['middle / right drag','pan'],
+      ['arrows','nudge the view (shift goes further)']]],
+    ['Project',[['ctrl+Z','undo'],['ctrl+shift+Z','redo'],
+      ['ctrl+S','save'],['ctrl+O','open'],['F5','run the simulation']]]]},
+  plot:{title:'Plot',groups:[
+    ['Markers',[['m','marker on the nearest trace'],['d','delta from the selected marker'],
+      ['q','edit the selected marker'],['del','delete it'],['esc','deselect it'],
+      ['drag','markers along the curve, bubbles anywhere']]],
+    ['View',[['f','fit'],['scroll','zoom the x axis'],['drag','pan'],
+      ['double-click','show everything'],['h','this list']]]]}
+};
+const KPOP={
+  sheet:{btn:'hKeys',pop:'hPop'},
+  plot:{btn:'plKeys',pop:'plPop'},
+  set:{btn:'setKeys',pop:'setPop'},        // written per analysis by drawSettings
+  math:{btn:'mathKeys',pop:'mathPop',html:`<h4>Math</h4>
+    <p>An expression over the signals of whichever analysis is showing, plotted as
+      another trace. For example <b>OUTA - OUTB</b>, <b>(OUTA-OUTB)/2</b>, or
+      <b>I(V1)*1k</b>.</p>
+    <p>Use the signal names as they appear under <b>Signals</b>, numbers with SPICE
+      suffixes, <b>+ − * /</b> and <b>( )</b>. <b>V(name)</b> and <b>I(V1)</b> also work.</p>
+    <p>Expressions are kept with the settings and re-applied after every run, so one
+      written before the first run appears as soon as there is a result. For AC they
+      are evaluated on the complex values, so a difference of two outputs keeps the
+      right magnitude and phase.</p>`},
+  mod:{btn:'modKeys',pop:'modPop',html:`<h4>Model</h4>
+    <p>ngspice with BSIM3 models fitted to measurements of this chip. DC, gain and pad
+      capacitance all come from a measured follower bandwidth.</p>
+    <p>To compare against a scope reading, put a 12 pF capacitor where your ×10 probe
+      goes.</p>`}};
+let kpOpen=null;
+const keyPopHTML=k=>`<h4>${esc(KEYHELP[k].title)} shortcuts</h4>`+
+  KEYHELP[k].groups.map(([g,rows])=>`<h5>${esc(g)}</h5>`+rows.map(([kk,dd])=>
+    `<div class="kr"><span class="kk">${esc(kk)}</span><span class="kd">${esc(dd)}</span></div>`
+  ).join('')).join('');
+function keyPop(which){                 // null closes both
+  Object.entries(KPOP).forEach(([k,o])=>{
+    const pp=document.getElementById(o.pop), b=document.getElementById(o.btn);
+    if(!pp||!b)return;
+    const want=k===which;
+    /* the key lists are static and built once; #setPop's contents are rewritten by
+       drawSettings for whichever analysis is selected, so it is left alone here */
+    if(want&&!pp.innerHTML)pp.innerHTML=KEYHELP[k]?keyPopHTML(k):(o.html||'');
+    pp.classList.toggle('show',want); b.classList.toggle('on',want);
+  });
+  kpOpen=which;
+}
+const toggleKeyPop=which=>keyPop(kpOpen===which?null:which);
+document.getElementById('hKeys').onclick=e=>{e.stopPropagation();toggleKeyPop('sheet')};
+document.getElementById('plKeys').onclick=e=>{e.stopPropagation();toggleKeyPop('plot')};
+document.getElementById('setKeys').onclick=e=>{e.stopPropagation();toggleKeyPop('set')};
+document.getElementById('mathKeys').onclick=e=>{e.stopPropagation();toggleKeyPop('math')};
+document.getElementById('modKeys').onclick=e=>{e.stopPropagation();toggleKeyPop('mod')};
+/* Non-modal: a click anywhere else puts it away and still does whatever it was
+   going to do, so the list never stands between the user and the canvas. */
+window.addEventListener('mousedown',e=>{
+  if(!kpOpen)return;
+  if(e.target instanceof Element&&e.target.closest('.kpop,.qbtn'))return;
+  keyPop(null);
+},true);
 
 function fit(){
   if(!comps.length&&!segs.length){view={x:60,y:40,k:.8};render();return}
@@ -2224,24 +2513,21 @@ document.getElementById('bExp').onclick=()=>{
   be.style.display=bl.length?'':'none';
   document.getElementById('modal').classList.add('show')};
 let lastConns=null;
-/* Export freshness. The button lights up in the colour of whichever way the
-   configuration last left the editor — pink for the Pico, light purple for a
-   downloaded connections.json — and goes back to plain green the moment the
-   schematic is touched. Deliberately a one-way flag rather than a comparison
-   against the exported state: undoing back to what was exported does NOT relight
-   it, because the only thing that proves the chip and the sheet agree is sending
-   it again. Panning and zooming are not edits and leave it alone. */
-let expState=null;                 // null | 'dl' | 'prog'
-const EXPTIP={
-  dl:'connections.json has been downloaded for this schematic',
-  prog:'this schematic has been programmed onto the Pico'};
-function markExported(how){ expState=how; refreshExportBtn() }
-function clearExported(){ if(expState!==null){expState=null;refreshExportBtn()} }
+/* Export freshness. The button goes pink once this schematic has been programmed
+   onto the Pico, and back to plain green the moment the schematic is touched.
+   Deliberately a one-way flag rather than a comparison against the programmed
+   state: undoing back to what was sent does NOT relight it, because the only thing
+   that proves the chip and the sheet agree is sending it again. Downloading the
+   JSON does not light it — a file on disk says nothing about what the chip is
+   holding. Panning and zooming are not edits and leave it alone. */
+let expProg=false;
+function markExported(){ expProg=true; refreshExportBtn() }
+function clearExported(){ if(expProg){expProg=false;refreshExportBtn()} }
 function refreshExportBtn(){
   const b=document.getElementById('bExp'); if(!b)return;
-  b.classList.toggle('dl',expState==='dl');
-  b.classList.toggle('prog',expState==='prog');
-  b.title=EXPTIP[expState]||'export the bus and pin connections that program the chip (connections.json)';
+  b.classList.toggle('prog',expProg);
+  b.title=expProg?'this schematic has been programmed onto the Pico'
+                 :'export the bus and pin connections that program the chip (connections.json)';
 }
 document.getElementById('bClose').onclick=()=>document.getElementById('modal').classList.remove('show');
 document.getElementById('bProg').onclick=()=>{
@@ -2259,7 +2545,6 @@ document.getElementById('bDl').onclick=()=>{
   const a=document.createElement('a');
   a.href=URL.createObjectURL(b); a.download='connections.json'; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
-  markExported('dl');
 };
 
 /* ==========================================================================
@@ -2363,7 +2648,7 @@ async function programPico(conns){
     while(Date.now()-t0<8000 && !/MOSBIUS_OK/.test(seen))
       await new Promise(r=>setTimeout(r,100));
     rd.releaseLock(); wr.releaseLock(); await pump;
-    if(/MOSBIUS_OK/.test(seen)){ picoLog('\n\u2713 chip programmed.\n'); markExported('prog') }
+    if(/MOSBIUS_OK/.test(seen)){ picoLog('\n\u2713 chip programmed.\n'); markExported() }
     else picoLog('\n\u26a0 no confirmation from the board. Is it running MicroPython, '+
                  'and is Thonny (or another serial monitor) holding the port?\n');
   }catch(e){
@@ -2837,13 +3122,13 @@ function noDCPath(ct){
 }
 function dcPathAdvice(ns,ct){
   const gateOnly=ns.filter(n=>ct.devs.some(d=>d.kind==='m'&&d.g===n));
-  return `no DC path at ${ns.join(', ')} — `+
+  return `No DC path at ${ns.join(', ')}. `+
     (gateOnly.length
-      ? 'that node only reaches transistor gates. A current pushed into a gate has '+
+      ? 'That node only reaches transistor gates. A current pushed into a gate has '+
         'nowhere to flow, so its voltage is undefined. Bias it through a diode-connected '+
         'device instead: drive the current mirror input (pin 19 nMOS / pin 68 pMOS), '+
         'which shares the pad with the OTA bias pin and converts the current to a voltage.'
-      : 'that node has no resistive or transistor path to a rail.');
+      : 'That node has no resistive or transistor path to a rail.');
 }
 
 /* ---------- DC operating point ---------- */
@@ -3160,21 +3445,48 @@ const saveSim=()=>{try{localStorage.setItem('mosbius.sim.v2',JSON.stringify(SIM)
 let simRes=null;                     // last result
 let probe={};                        // signal key ('V:net' / 'I:V1') -> shown in the plot
 let simBusy=false;
-/* Which analysis the last successful run was, so Run can light up (pink, like the
-   export button) while the result on screen is the analysis currently selected.
-   Only one is remembered: running a different analysis forgets the previous one,
-   and switching the picker back and forth does not, so the lamp means "the result
-   on the plot is this analysis". Editing the schematic clears it one-way — undoing back does not relight it. AC counts its
-   two modes separately, since Response and Loop gain are different measurements. */
-let ranAna=null;
+/* One finished result per analysis, so the picker switches between simulations
+   that have already been run instead of throwing the last one away. A slot holds
+   everything belonging to that result: the data, which signals are ticked, and
+   the plot's zoom. Markers already live in MK, keyed by the same kind.
+   An analysis with no slot has simply not been run, and its plot says so. */
+const ANAS=['op','dc','ac','tran'];
+const ANANAME={op:'Op Point',dc:'DC Sweep',ac:'AC',tran:'Transient'};
+const SIMSLOT={};                    // kind -> {res, probe, plv}
+/* AC counts its two modes separately: Freq Response and Loop Gain are different
+   measurements, so a loop result does not stand in for a response one. */
 const anaKey=(kind,loop)=>{
   const k=kind||SIM.ana;
   return k==='ac'?'ac:'+((loop===undefined?SIM.ac.mode==='loop':loop)?'loop':'resp'):k;
 };
-function clearRan(){ if(ranAna!==null){ranAna=null;refreshRunBtn()} }
+/* park what is on screen in its own slot, then bring another analysis forward */
+function stashSim(){ if(simRes)SIMSLOT[simRes.kind]={res:simRes,probe,plv} }
+function showSim(kind){
+  stashSim();
+  const t=SIMSLOT[kind];
+  simRes=t?t.res:null; probe=t?t.probe:{}; plv=t?t.plv:null; mkSel=null;
+}
+/* Run lights up (pink, like the export button) when the result it would produce is
+   already on screen. Editing the schematic marks every stored
+   result stale, one-way: undoing back does not relight them, because only running
+   again proves the plot matches the sheet. */
+/* The status line describes what is on the plot, so switching analyses restates
+   it rather than leaving the previous run's timing sitting there. */
+function syncStat(){
+  if(!simRes)setStat(ANANAME[SIM.ana]+' has not been run yet.');
+  else if(simRes.stale)setStat('Schematic changed. Press Run (F5) to update.');
+  else setStat(simRes.stat||'');
+}
+const simFresh=kind=>{const t=SIMSLOT[kind], r=t&&t.res;
+  return !!(r&&!r.err&&!r.stale&&r.akey===anaKey(kind))};
+function clearRan(){
+  Object.values(SIMSLOT).forEach(t=>{if(t.res)t.res.stale=true});
+  if(simRes)simRes.stale=true;
+  refreshRunBtn();
+}
 function refreshRunBtn(){
   const b=document.getElementById('spRun'); if(!b)return;
-  const lit=ranAna!==null&&ranAna===anaKey();
+  const lit=simFresh(SIM.ana);
   b.classList.toggle('on',lit);
   b.title=lit?'this analysis has already been run on this schematic (F5 to run again)':'F5';
 }
@@ -3328,25 +3640,28 @@ async function runAnalysis(kind){
   if(simBusy)return;
   kind=kind||SIM.ana;
   if(kind!=='op'&&!paneOpen())openPane();
+  /* a failure belongs to the analysis that failed, not to whatever the picker
+     happens to show — Run All runs the other three too */
+  const fail=(lines,netlist)=>simError(lines,netlist,kind);
   const ana={kind};
   if(kind==='ac'&&SIM.ac.mode==='loop'){
     const c=comps.find(x=>x.id===+SIM.ac.probe&&x.key==='lprobe');
-    if(!c){simError(['Place a Loop probe in the feedback wire (Testbench \u2192 Loop probe) and pick it here.']);return}
+    if(!c){fail(['Place a Loop probe in the feedback wire (Testbench \u2192 Loop probe) and pick it here.']);return}
     ana.loop=c.id; ana.probeName=c.nm;
   } else if(kind==='ac'){
     const c=comps.find(x=>x.id===+SIM.ac.src&&(x.key==='vsrc'||x.key==='isrc'));
-    if(!c){simError(['Pick the AC input source (the one you are driving the circuit with).']);return}
+    if(!c){fail(['Pick the AC input source (the one you are driving the circuit with).']);return}
     ana.acSrc=c.id;
   }
   /* the one mistake ngspice explains badly: a node only a gate touches */
   const bad=noDCPath(buildCircuit());
-  if(bad.length){simError([dcPathAdvice(bad,buildCircuit())]);return}
+  if(bad.length){fail([dcPathAdvice(bad,buildCircuit())]);return}
   let ctx, text;
   try{
     ctx=spiceNetlist(ana);
-    if(!Object.keys(ctx.devMap).length&&!ctx.srcs.length){simError(['Nothing to simulate yet — place devices and sources.']);return}
+    if(!Object.keys(ctx.devMap).length&&!ctx.srcs.length){fail(['Nothing to simulate yet. Place some devices and a source.']);return}
     text=ctx.L.concat(analysisLines(ana,ctx),['.end']).join('\n');
-  }catch(e){simError([e.message]);return}
+  }catch(e){fail([e.message]);return}
   simBusy=true; setStat(engineP?'running…':'loading ngspice (first run only)…');
   let r, eng, rI;
   try{
@@ -3361,29 +3676,44 @@ async function runAnalysis(kind){
       text+='\n\n* second run (current injection):\n'+t2;
     } else { eng.setNetList(text); r=await eng.runSim(); }
     ana.ms=Math.round(performance.now()-t0);
-  }catch(e){simBusy=false;simError([e.message]);return}
+  }catch(e){simBusy=false;fail([e.message]);return}
   simBusy=false;
   const errs=eng.getError().filter(x=>/error|singular|not parsed|interrupted|abort|fail|too small|no convergence/i.test(x));
   if(!r||!r.data||!r.data.length||(errs.length&&!r.numPoints)){
-    simError((errs.length?errs:['ngspice returned no data.']).concat(['','(the netlist is under "Netlist")']),text);return}
-  try{ const res=ana.loop?loopResult(r,rI,ana,ctx):parseResult(r,ana,ctx); res.netlist=text; res.warn=ctx.warn.concat(errs);
-    simRes=res; applyMath();
-    if(res.kind==='op'){opRes=res.op; showOp=true; document.getElementById('bOp').classList.add('on'); renderOp()}
-    else autoProbe();
-  }catch(e){simError(['Could not read the result: '+e.message],text);return}
-  setStat(`${ana.loop?'loop gain at '+ana.probeName:{op:'operating point',dc:'DC sweep',ac:'AC',tran:'transient'}[kind]} · ngspice · ${ana.ms} ms`+
-    (simRes.flipped?' · probe was reversed, corrected':'')+
-    (simRes.warn.length?` · ⚠ ${simRes.warn.length}`:''));
-  ranAna=anaKey(kind,!!ana.loop);
+    fail((errs.length?errs:['ngspice returned no data.']).concat(['','(the netlist is under "Netlist")']),text);return}
+  let res;
+  try{ res=ana.loop?loopResult(r,rI,ana,ctx):parseResult(r,ana,ctx); res.netlist=text; res.warn=ctx.warn.concat(errs);
+    res.akey=anaKey(kind,!!ana.loop);
+    putSim(kind,res);
+  }catch(e){fail(['Could not read the result: '+e.message],text);return}
+  res.stat=`${ana.loop?'loop gain at '+ana.probeName:{op:'operating point',dc:'DC sweep',ac:'AC',tran:'transient'}[kind]} · ngspice · ${ana.ms} ms`+
+    (res.flipped?' · probe was reversed, corrected':'')+
+    (res.warn.length?` · ⚠ ${res.warn.length}`:'');
+  setStat(res.stat);
   drawPaneAll(); render(); refreshRunBtn();
 }
-function simError(lines,netlist){
-  simRes={kind:SIM.ana,err:lines,netlist:netlist||''};
-  ranAna=null;                       // nothing valid is on screen any more
-  if(!paneOpen())openPane();
-  setStat('✖ did not run'); drawPaneAll(); refreshRunBtn();
+/* File a finished result under its own analysis. The post-processing (math traces,
+   the default tick, the operating-point annotation) has to run against that
+   analysis's own slot, so the slot is brought forward, filled, and — when the user
+   is looking at something else, as during Run All — the view is put back. */
+function putSim(kind,res){
+  const back=SIM.ana===kind?null:SIM.ana;
+  showSim(kind);
+  simRes=res; applyMath();
+  if(res.kind==='op'){opRes=res.op; showOp=true; document.getElementById('bOp').classList.add('on'); renderOp()}
+  else autoProbe();
+  stashSim();
+  if(back)showSim(back);
 }
-
+function simError(lines,netlist,kind){
+  kind=kind||SIM.ana;
+  putSim(kind,{kind,err:lines,netlist:netlist||'',stat:'✖ '+ANANAME[kind]+' did not run.'});
+  if(!paneOpen())openPane();
+  /* a failure in an analysis the user is not looking at (Op point from the
+     toolbar, or Run All) would otherwise be silent */
+  if(kind===SIM.ana)syncStat(); else setStat('✖ '+ANANAME[kind]+' did not run.');
+  drawPaneAll(); render(); refreshRunBtn();
+}
 /* ngspice vectors -> plottable series, labelled with the schematic's names */
 function parseResult(r,ana,ctx){
   const D={}; r.data.forEach(d=>D[d.name.toLowerCase()]=d.values);
@@ -3502,11 +3832,30 @@ const paneOpen=()=>document.getElementById('simpane').classList.contains('open')
    closing and reopening — or reloading — comes back the way it was last used. */
 const SPH_KEY='mosbius.sim.h', SPMAX_KEY='mosbius.sim.max';
 const spClamp=h=>Math.max(150,Math.min(window.innerHeight*0.8,h));
+/* The two side columns are resized the same way the pane is, just sideways. Each
+   is a preference, so it is remembered; each is clamped against what is left, so
+   a width saved on a wider window cannot squeeze the plot out of existence. */
+const COLS={ana:{el:'spanacol',v:'--spaw',key:'mosbius.sim.anaw',def:132,min:118},
+            side:{el:'spside', v:'--spsw',key:'mosbius.sim.setw',def:290,min:170}};
+const PLOTMIN=200;
+const colW=w=>document.getElementById(COLS[w].el).getBoundingClientRect().width;
+function colClamp(w,px){
+  const C=COLS[w], other=w==='ana'?'side':'ana';
+  const body=document.getElementById('spbody');
+  const room=(body.clientWidth||900)-colW(other)-PLOTMIN-14;   // 14 = the two grab strips
+  return Math.round(Math.max(C.min,Math.min(Math.max(C.min,room),px)));
+}
+function setColW(w,px){
+  document.getElementById('simpane').style.setProperty(COLS[w].v,colClamp(w,px)+'px');
+}
 function saveSimSize(){
   const p=document.getElementById('simpane');
   const h=parseInt(p.style.getPropertyValue('--sph'));
   try{if(h)localStorage.setItem(SPH_KEY,h);
-      localStorage.setItem(SPMAX_KEY,p.classList.contains('max')?'1':'0')}catch(e){}
+      localStorage.setItem(SPMAX_KEY,p.classList.contains('max')?'1':'0');
+      Object.values(COLS).forEach(C=>{
+        const v=parseInt(p.style.getPropertyValue(C.v)); if(v)localStorage.setItem(C.key,v)});
+  }catch(e){}
 }
 /* The expand button shows where it will take you: corner arrows flying out to the
    edges while the pane is inset, and the same brackets folded back in once it is
@@ -3529,13 +3878,19 @@ function applySimSize(){
   /* a height saved on a taller window would otherwise push the pane off-screen */
   if(!h)h=parseInt(p.style.getPropertyValue('--sph'))||0;
   if(h)p.style.setProperty('--sph',spClamp(h)+'px');
+  /* set both widths before clamping either, so each is measured against the other */
+  Object.entries(COLS).forEach(([w,C])=>{
+    let v=0; try{v=+localStorage.getItem(C.key)}catch(e){}
+    p.style.setProperty(C.v,(v||C.def)+'px');
+  });
   p.classList.toggle('max',mx); drawMaxBtn();
+  requestAnimationFrame(()=>Object.keys(COLS).forEach(w=>setColW(w,colW(w))));
 }
 function openPane(){
   const p=document.getElementById('simpane'); applySimSize(); p.classList.add('open');
   document.getElementById('bSim').classList.add('on');
   loadEngine().catch(()=>{});             // warm up while the user sets things
-  drawPaneAll(); requestAnimationFrame(()=>{render();drawPlot()});
+  showSim(SIM.ana); drawPaneAll(); syncStat(); requestAnimationFrame(()=>{render();drawPlot()});
 }
 function closePane(){
   const p=document.getElementById('simpane'); saveSimSize(); p.classList.remove('open','max'); drawMaxBtn();
@@ -3552,65 +3907,107 @@ function fld(path,label,unit,w){
 }
 function drawSettings(){
   const a=SIM.ana;
-  document.querySelectorAll('#spAna button').forEach(b=>b.classList.toggle('on',b.dataset.an===a));
+  document.querySelectorAll('#spAna [data-an]').forEach(b=>b.classList.toggle('on',b.dataset.an===a));
+  document.querySelectorAll('#spAna [data-acm]').forEach(b=>
+    b.classList.toggle('on',a==='ac'&&b.dataset.acm===SIM.ac.mode));
+  document.getElementById('acSubs').classList.toggle('off',a!=='ac');
   const srcs=comps.filter(c=>c.key==='vsrc'||c.key==='isrc');
   if(a==='dc'&&!srcs.some(c=>c.id===+SIM.dc.src))SIM.dc.src=srcs[0]?srcs[0].id:null;
   if(a==='ac'&&!srcs.some(c=>c.id===+SIM.ac.src)){const s=srcs.find(c=>sp(c,'mode')==='sin')||srcs[0];SIM.ac.src=s?s.id:null}
   const none=`<div class="spnote">Place a voltage or current source first (Testbench in the part list).</div>`;
-  let h='';
-  if(a==='op') h=`<div class="spnote">Solves the DC bias point. Each device's numbers go to the
-    <b>Operating point</b> table on the right; device names on the schematic turn
+  let h='', about='';
+  if(a==='op') about=`<p>Solves the DC bias point. Each device's numbers go to the
+    <b>Operating point</b> table on the right. Device names on the schematic turn
     <span style="color:var(--good)">green</span> in saturation, <span style="color:#D6A653">amber</span> in triode,
-    grey when off. Node voltages appear here.</div>`;
-  else if(a==='dc') h=!srcs.length?none:`
+    and grey when off. Node voltages appear in the plot area.</p>
+    <p>There is nothing to set. Just press <b>Run</b>.</p>`;
+  if(a==='dc') h=!srcs.length?none:`
     <div class="frow"><label>Sweep</label><select data-sf="dc.src">${srcOptions(SIM.dc.src)}</select></div>
     ${fld('dc.from','From',srcUnitOf(SIM.dc.src))}${fld('dc.to','To',srcUnitOf(SIM.dc.src))}${fld('dc.step','Step',srcUnitOf(SIM.dc.src))}
     <label class="frow sw"><input type="checkbox" data-sf="dc.step2On"${SIM.dc.step2On?' checked':''}> <span>And Step a Second Source (Curve Family)</span></label>
     ${SIM.dc.step2On?`<div class="frow"><label>Step</label><select data-sf="dc.src2">${srcOptions(SIM.dc.src2)}</select></div>
     ${fld('dc.from2','From',srcUnitOf(SIM.dc.src2))}${fld('dc.to2','To',srcUnitOf(SIM.dc.src2))}${fld('dc.step2','Step',srcUnitOf(SIM.dc.src2))}`:''}`;
+  if(a==='dc') about=`<p>Steps one source across a range and solves the DC bias at every
+      point. Each trace is a static transfer curve, such as an I–V or a DC gain
+      characteristic.</p>
+    <p>Ticking <b>And Step a Second Source</b> repeats the whole sweep at several values
+      of a second source, giving a family of curves.</p>`;
   else if(a==='ac'){
     const loop=SIM.ac.mode==='loop', lps=comps.filter(c=>c.key==='lprobe');
     if(loop&&!lps.some(c=>c.id===+SIM.ac.probe))SIM.ac.probe=lps[0]?lps[0].id:null;
-    h=`<div class="frow"><span class="seg" id="acMode" style="flex:1">
-        <button type="button" data-acm="resp"${loop?'':' class="on"'}>Response</button>
-        <button type="button" data-acm="loop"${loop?' class="on"':''}>Loop Gain</button></span></div>`+
-    (loop
+    h=(loop
       ? (lps.length?`<div class="frow"><label>Loop Probe</label><select data-sf="ac.probe">${lps.map(c=>
             `<option value="${c.id}"${+SIM.ac.probe===c.id?' selected':''}>${c.nm}</option>`).join('')}</select></div>`
-          :`<div class="spnote">Place a <b>Loop probe</b> (Testbench) in the feedback wire \u2014 it is a plain wire at DC and on the chip.</div>`)
-        +`${fld('ac.f1','From','Hz')}${fld('ac.f2','To','Hz')}${fld('ac.ppd','Points / Decade','')}
-        <div class="spnote">Plots the gain around the loop at the probe, with DC loop gain, unity-gain frequency,
-          phase margin and gain margin. Point the probe's arrow from the output back toward the amplifier input;
-          if it is the other way round the result is corrected automatically.</div>`
+          :'')
+        +`${fld('ac.f1','From','Hz')}${fld('ac.f2','To','Hz')}${fld('ac.ppd','Points / Decade','')}`
       : (!srcs.length?none:`
         <div class="frow"><label>Input Source</label><select data-sf="ac.src">${srcOptions(SIM.ac.src)}</select></div>
-        ${fld('ac.f1','From','Hz')}${fld('ac.f2','To','Hz')}${fld('ac.ppd','Points / Decade','')}
-        <div class="spnote">The input gets a 1 V (or 1 A) small signal, so each trace reads directly as gain from the input. Its DC value still sets the bias.
-          This is the closed-loop response; for stability (phase margin) use <b>Loop Gain</b>.</div>`));
+        ${fld('ac.f1','From','Hz')}${fld('ac.f2','To','Hz')}${fld('ac.ppd','Points / Decade','')}`));
+    about=loop
+      ? `<p>Plots the gain around the loop at the probe, with DC loop gain, unity-gain frequency,
+          phase margin and gain margin. Point the probe's arrow from the output back toward the
+          amplifier input; if it is the other way round the result is corrected automatically.</p>
+         <p>Needs a <b>Loop probe</b> (Testbench) placed in the feedback wire. It behaves as
+          a plain wire at DC and on the chip.</p>`
+      : `<p>The input gets a 1 V (or 1 A) small signal, so each trace reads directly as gain from
+          the input. Its DC value still sets the bias.</p>
+         <p>This is the closed-loop response. For stability, meaning phase margin, use
+          <b>Loop Gain</b>.</p>`;
   }
-  else h=`${fld('tran.tstop','Stop Time','s')}
+  else if(a==='tran') h=`${fld('tran.tstop','Stop Time','s')}
     <details class="spmore"${SIM.tran.tstart!=='0'||SIM.tran.icNode?' open':''}><summary>More</summary>
       ${fld('tran.tstart','Start Plotting At','s')}
       <div class="frow"><label>Start Node</label><select data-sf="tran.icNode"><option value="">—</option>
         ${nets().map(n=>`<option${n.name===SIM.tran.icNode?' selected':''}>${esc(n.name)}</option>`).join('')}</select></div>
       ${fld('tran.icV','… At','V')}
-      <div class="spnote">A start node kicks circuits that would otherwise sit still, such as a ring oscillator.</div>
-    </details>
-    <div class="spnote">Time steps are chosen automatically.</div>`;
+    </details>`;
+  if(a==='tran')about=`<p>Time steps are chosen automatically.</p>
+    <p>Under <b>More</b>, a start node kicks circuits that would otherwise sit still,
+      such as a ring oscillator.</p>`;
   document.getElementById('spSet').innerHTML=h;
+  /* the ? only appears when there is something behind it */
+  document.getElementById('setPop').innerHTML=about?`<h4>${esc(ANANAME[a])}</h4>`+about:'';
+  document.getElementById('setKeys').style.display=about?'':'none';
+  if(!about&&kpOpen==='set')keyPop(null);
   document.getElementById('spModel').innerHTML=`
     ${fld('vdd','Chip Supply','V')}
     <label class="frow sw"><input type="checkbox" data-sf="cpadOn"${SIM.cpadOn?' checked':''}> <span>Pad + Board Capacitance</span></label>
-    ${SIM.cpadOn?fld('cpad','… Per Pad','F')+fld('cbus','… Per Bus','F'):''}
-    <div class="spnote">ngspice with BSIM3 models fitted to measurements of this chip (DC, gain, and
-      pad capacitance from a measured follower bandwidth). To compare with a scope reading, put a
-      12 pF capacitor where your ×10 probe goes.</div>`;
+    ${SIM.cpadOn?fld('cpad','… Per Pad','F')+fld('cbus','… Per Bus','F'):''}`;
   refreshRunBtn();
 }
 const srcUnitOf=id=>{const c=comps.find(x=>x.id===+id);return c?srcU(c):''};
+/* The expression box belongs to the pane, not to a result: expressions are kept in
+   SIM and re-applied after every run, so it has its own section and is offered
+   before the first run too. How to write one is behind the section's ?. */
+/* The one expression that was rejected, kept outside SIM.math so nothing invalid is
+   stored and so only the latest rejection is ever on screen. */
+let mathErr=null;                    // {expr, err} | null
+function drawMath(){
+  const box=document.getElementById('spMath'); if(!box)return;
+  const row=(expr,val,bad,id,tip)=>`<div class="mrow${bad?' bad':''}">
+      <span class="mx">${esc(expr)}</span><span class="mv">${esc(val)}</span>
+      <span class="mdel" data-mdel="${id}" title="${tip}">✕</span></div>`;
+  /* a rejected expression stays in the box so it can be fixed rather than retyped */
+  box.innerHTML=
+    `<div class="mathadd"><input id="mathIn" placeholder="e.g. OUTA - OUTB" spellcheck="false"
+        value="${mathErr?esc(mathErr.expr):''}">
+      <button type="button" id="mathAdd">+</button></div>`
+    +(mathErr?row(mathErr.expr,mathErr.err,true,'__err','dismiss'):'')
+    +(SIM.math||[]).slice().reverse().map(m=>{
+        const s=simRes&&simRes.series&&simRes.series.find(x=>x.math===m.id);
+        const val=m.err?m.err
+          :s?'= '+measure1(s)
+          :(simRes&&simRes.kind==='op')?'not available for Op Point':'not run yet';
+        return row(m.expr,val,!!m.err,m.id,'remove');
+      }).join('');
+}
 function drawSignals(){
   const box=document.getElementById('spSig');
-  if(!simRes||simRes.err||simRes.kind==='op'){box.innerHTML=`<div class="spnote">${simRes&&simRes.kind==='op'?'—':'Run once, then tick what to show. Or <b>Probe</b> and click wires on the schematic.'}</div>`;return}
+  if(!simRes||simRes.err||simRes.kind==='op'){
+    box.innerHTML=`<div class="spnote">${simRes&&simRes.kind==='op'?'—'
+      :!simRes?`Run <b>${ANANAME[SIM.ana]}</b> to see its signals here.`
+      :'Run once, then tick what to show. Or <b>Probe</b> and click wires on the schematic.'}</div>`;
+    return}
   const keys=[...new Set(simRes.series.map(s=>s.key))];
   const col=colorMap();
   box.innerHTML=keys.map(k=>{
@@ -3618,12 +4015,7 @@ function drawSignals(){
     return `<label class="sig${on?' on':''}"><input type="checkbox" data-sig="${esc(k)}"${on?' checked':''}>
       <span class="chip" style="background:${on?col[k]:'transparent'};border:1px solid ${col[k]}"></span>
       <span class="nm">${esc(s.label)}</span><span class="ms">${on?esc(measure1(s)):''}</span>${
-      s.math?`<span class="mdel" data-mdel="${s.math}" title="remove">✕</span>`:''}</label>`}).join('')+
-    (SIM.math||[]).filter(m=>m.err).map(m=>`<div class="merr">✖ ${esc(m.expr)}: ${esc(m.err)}
-      <span class="mdel" data-mdel="${m.id}">✕</span></div>`).join('')+
-    `<div class="mathadd"><input id="mathIn" placeholder="math, e.g. OUTA - OUTB" spellcheck="false">
-      <button type="button" id="mathAdd">+</button></div>
-     <div class="spnote">Use the names above, numbers, + − * / and ( ). Also V(name), I(V1).</div>`;
+      s.math?`<span class="mdel" data-mdel="${s.math}" title="remove">✕</span>`:''}</label>`}).join('');
 }
 /* ---------- math traces ----------
    An expression over the result's own signals, e.g. OUTA - OUTB, (OUTA-OUTB)/2,
@@ -3684,8 +4076,19 @@ function applyMath(){
 }
 function addMath(txt){
   txt=(txt||'').trim(); if(!txt)return;
-  const m={id:Date.now().toString(36),expr:txt}; SIM.math=(SIM.math||[]).concat([m]);
-  applyMath(); if(!m.err)probe['M:'+m.id]=true; saveSim(); drawSignals(); drawPlot();
+  const reject=msg=>{mathErr={expr:txt,err:msg}; drawMath();
+    const i=document.getElementById('mathIn'); if(i){i.focus();i.select()}};
+  /* syntax is checked even with no result yet, so a typo is caught straight away */
+  try{ mathParse(txt) }catch(e){ reject(e.message); return }
+  const m={id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),expr:txt};
+  SIM.math=(SIM.math||[]).concat([m]);
+  applyMath();
+  if(m.err){ SIM.math=SIM.math.filter(x=>x!==m); reject(m.err); return }
+  mathErr=null; probe['M:'+m.id]=true; saveSim();
+  drawMath();
+  /* the plot redraw is the slow part and would hold back the paint, so the new row
+     is shown first and the heavy work happens on the next frame */
+  requestAnimationFrame(()=>{drawSignals();drawPlot()});
 }
 function colorMap(){const m={};let i=0;
   if(simRes&&simRes.series)[...new Set(simRes.series.map(s=>s.key))].forEach(k=>{if(probe[k])m[k]=TRC[i++%TRC.length]});
@@ -3718,15 +4121,16 @@ function measure1(s){
   }
   return s.fam?s.fam:`${fv(mn,s.unit)} … ${fv(mx,s.unit)}`;
 }
-function drawPaneAll(){ if(!paneOpen())return; drawSettings(); drawSignals(); drawPlot(); }
+function drawPaneAll(){ if(!paneOpen())return; drawSettings(); drawMath(); drawSignals(); drawPlot(); }
 
 /* ---------- plot ---------- */
 let plv=null, plHover=null, plHoverY=null;
+let overPlot=false;                  // the plot keys only apply while over it
 function drawPlot(){
   const sv=document.getElementById('pl'), msg=document.getElementById('plmsg');
   const W=sv.clientWidth||600, H=sv.clientHeight||260;
   msg.innerHTML=''; sv.innerHTML='';
-  if(!simRes){msg.innerHTML=`<div class="plempty">Choose an analysis on the left and press <b>Run</b> (F5).</div>`;return}
+  if(!simRes){msg.innerHTML=`<div class="plempty"><span>Press <b>Run</b> (F5).</span></div>`;return}
   if(simRes.err){msg.innerHTML=`<div class="plerr">${simRes.err.map(esc).join('<br>')}</div>`;return}
   if(simRes.kind==='op'){
     const r=simRes; msg.innerHTML=`<div class="optab">
@@ -3738,7 +4142,7 @@ function drawPlot(){
     return;
   }
   const on=simRes.series.filter(s=>probe[s.key]);
-  if(!on.length){msg.innerHTML=`<div class="plempty">Tick signals on the left, or press <b>Probe</b> and click wires.</div>`;return}
+  if(!on.length){msg.innerHTML=`<div class="plempty"><span>Tick a signal on the left, or press <b>Probe</b> and click a wire.</span></div>`;return}
   const X=simRes.x, lg=!!simRes.log, tx=v=>lg?Math.log10(Math.max(v,1e-30)):v;
   const full=[tx(X[0]),tx(X[X.length-1])];
   /* keep the zoom across re-runs of the same sweep; a new x range starts fresh */
@@ -3953,10 +4357,19 @@ function logTicks(a,b){const out=[];for(let e=Math.ceil(a);e<=Math.floor(b);e++)
     document.getElementById('picolog').classList.remove('on');
     document.getElementById('modal').classList.add('show');
   };
-  document.getElementById('spside').addEventListener('click',e=>{const b=e.target.closest('[data-acm]');if(!b)return;
-    SIM.ac.mode=b.dataset.acm; saveSim(); drawSettings();});
-  document.getElementById('spAna').onclick=e=>{const b=e.target.closest('[data-an]');if(!b)return;
-    SIM.ana=b.dataset.an; saveSim(); drawSettings();};
+  document.getElementById('spAna').onclick=e=>{
+    const sm=e.target.closest('[data-acm]');
+    if(sm){                              // a sub-option selects AC too
+      if(SIM.ana==='ac'&&SIM.ac.mode===sm.dataset.acm)return;
+      SIM.ac.mode=sm.dataset.acm;
+      if(SIM.ana!=='ac'){SIM.ana='ac'; showSim('ac')}
+      saveSim(); drawPaneAll(); render(); syncStat(); return;
+    }
+    const b=e.target.closest('[data-an]');if(!b)return;
+    if(b.dataset.an===SIM.ana)return;
+    /* park the result on screen and bring this analysis's own result forward,
+       so the picker moves between finished simulations, not just settings */
+    SIM.ana=b.dataset.an; showSim(SIM.ana); saveSim(); drawPaneAll(); render(); syncStat();};
   const side=document.getElementById('spside');
   side.addEventListener('change',e=>{
     const f=e.target.dataset.sf, k=e.target.dataset.sig;
@@ -3971,8 +4384,9 @@ function logTicks(a,b){const out=[];for(let e=Math.ceil(a);e<=Math.floor(b);e++)
   side.addEventListener('click',e=>{
     if(e.target.id==='mathAdd'){addMath(document.getElementById('mathIn').value);return}
     const d=e.target.closest('[data-mdel]'); if(!d)return; e.preventDefault(); e.stopPropagation();
+    if(d.dataset.mdel==='__err'){mathErr=null; drawMath(); return}
     SIM.math=(SIM.math||[]).filter(m=>m.id!==d.dataset.mdel); delete probe['M:'+d.dataset.mdel];
-    applyMath(); saveSim(); drawSignals(); drawPlot();
+    applyMath(); saveSim(); drawMath(); drawSignals(); drawPlot();
   });
   side.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='mathIn'){e.preventDefault();addMath(e.target.value);return}
     if(e.key==='Enter'&&e.target.dataset.sf){e.target.dispatchEvent(new Event('change',{bubbles:true}));runAnalysis()}});
@@ -4010,7 +4424,6 @@ function logTicks(a,b){const out=[];for(let e=Math.ceil(a);e<=Math.floor(b);e++)
     plv=null;drawPlot()});
   /* keys act on the plot while the pointer is over it (they mean other things on the schematic):
      f fit, m marker, d delta to the selected marker, q edit it, delete removes it */
-  let overPlot=false;
   const spp=document.getElementById('spplot');
   spp.addEventListener('mouseenter',()=>overPlot=true); spp.addEventListener('mouseleave',()=>overPlot=false);
   window.addEventListener('keydown',e=>{
@@ -4041,14 +4454,29 @@ function logTicks(a,b){const out=[];for(let e=Math.ceil(a);e<=Math.floor(b);e++)
     if(!(e.buttons&1)){saveSimSize();rz=null;return}
     pane.style.setProperty('--sph',spClamp(rz.h-(e.clientY-rz.y))+'px'); render(); drawPlot()});
   window.addEventListener('mouseup',()=>{if(rz){saveSimSize()}rz=null});
+  /* resize the side columns by the rules between them */
+  let vrz=null;
+  document.querySelectorAll('.spvh').forEach(hd=>hd.addEventListener('mousedown',e=>{
+    if(e.button!==0)return;                 // a right-click must not start a drag
+    vrz={w:hd.dataset.vh,x:e.clientX,start:colW(hd.dataset.vh),hd};
+    hd.classList.add('on'); e.preventDefault();
+  }));
+  const endVrz=()=>{if(vrz){vrz.hd.classList.remove('on');saveSimSize()}vrz=null};
+  window.addEventListener('mousemove',e=>{if(!vrz)return;
+    if(!(e.buttons&1)){endVrz();return}     // released where we could not hear it
+    setColW(vrz.w,vrz.start+(e.clientX-vrz.x)); drawPlot();
+  });
+  window.addEventListener('mouseup',endVrz);
   window.addEventListener('keydown',e=>{if(e.key==='F5'){e.preventDefault();runAnalysis()}});
-  window.addEventListener('resize',()=>{if(paneOpen())drawPlot()});
+  window.addEventListener('resize',()=>{if(!paneOpen())return;
+    /* a narrower window may no longer have room for the widths that were saved */
+    Object.keys(COLS).forEach(w=>setColW(w,colW(w))); drawPlot()});
 })();
 /* briefly highlight a device on the schematic (used when picking a source) */
 function flashDev(id){hover={kind:'dev',id};render();setTimeout(()=>{if(hover&&hover.id===id){hover=null;render()}},1200)}
 /* called after any schematic edit: results no longer match what is drawn */
 function simStale(){if(simRes&&!simRes.err&&!simRes.stale){simRes.stale=true;
-  if(paneOpen())setStat('schematic changed — press Run (F5) to update')}}
+  if(paneOpen())setStat('Schematic changed. Press Run (F5) to update.')}}
 /* When the wiring changes, net names can move to different wires (net7 may
    now be something else), so the ticked signals and their markers are cleared
    rather than silently showing a different node. Moving parts or editing values
@@ -4057,9 +4485,15 @@ function simStale(){if(simRes&&!simRes.err&&!simRes.stale){simRes.stale=true;
 let netSig=null;
 function netsChanged(N){
   const sig=N.map(n=>n.name+'='+n.keys.slice().sort().join(',')).sort().join('|');
-  if(netSig!==null&&sig!==netSig&&(Object.entries(probe).some(([k,v])=>v&&!k.startsWith('M:'))||Object.keys(MK).length)){
-    /* math traces are defined by name, so they stay; only net ticks and markers go */
-    probe=Object.fromEntries(Object.entries(probe).filter(([k,v])=>v&&k.startsWith('M:'))); MK={}; mkSel=null;
+  const keepMath=p=>Object.fromEntries(Object.entries(p).filter(([k,v])=>v&&k.startsWith('M:')));
+  const ticked=p=>Object.entries(p).some(([k,v])=>v&&!k.startsWith('M:'));
+  if(netSig!==null&&sig!==netSig&&
+     (ticked(probe)||Object.values(SIMSLOT).some(t=>ticked(t.probe))||Object.keys(MK).length)){
+    /* math traces are defined by name, so they stay; only net ticks and markers go,
+       in every analysis's slot — net7 may be a different wire in all of them */
+    probe=keepMath(probe);
+    Object.entries(SIMSLOT).forEach(([k,t])=>{t.probe=(simRes&&simRes.kind===k)?probe:keepMath(t.probe)});
+    MK={}; mkSel=null;
     if(paneOpen()){drawSignals();drawPlot()}
   }
   netSig=sig;
@@ -4223,8 +4657,10 @@ function openSrcDialog(c){
   document.getElementById('pX').textContent='Cancel';
   document.getElementById('pmodal').classList.add('show');
 }
+const SRCROWS=Math.max(...Object.values(SRCF).map(f=>f.length));   // the tallest mode
 function drawSrcDialog(){
   const c=pTarget, m=srcDraft.mode, u=srcU(c);
+  const ghost=`<div class="prow pghost"><label>—</label><input disabled><span class="u"></span></div>`;
   document.getElementById('pbody').innerHTML=
     `<div class="prow"><label>waveform</label><span class="seg" id="srcMode">
       ${SRCMODES.map(([k,l])=>`<button type="button" data-sm="${k}"${k===m?' class="on"':''}>${l}</button>`).join('')}
@@ -4232,7 +4668,8 @@ function drawSrcDialog(){
     SRCF[m].map(([k,l,unit])=>`<div class="prow"><label>${l}</label>
       <input data-pk="${k}" value="${srcDraft[k]??''}" placeholder="${PDEF[c.key][k]}">
       <span class="u">${unit===undefined?u:unit}</span></div>`).join('')+
-    `<div style="font-size:10.5px;color:var(--dim);margin-top:6px;line-height:1.6">
+    ghost.repeat(SRCROWS-SRCF[m].length)+
+    `<div class="srcnote" style="font-size:10.5px;color:var(--dim);margin-top:6px;line-height:1.6">
       ${m==='pwl'?`Pairs of <i>time value</i>, separated by commas, e.g. <span style="font-family:var(--mono)">0 0, 1u 2.5, 3u 0</span>.<br>`:''}
       ${m==='sin'?'For an AC (frequency) analysis you just pick this source as the input; nothing to set here.<br>':''}
       Suffixes: <span style="font-family:var(--mono)">f p n u m k M G</span> (M = mega). Blank uses the grey default.
