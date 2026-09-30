@@ -248,7 +248,6 @@
     <button id="bOpen" title="ctrl+O">Open</button>
     <input type="file" id="fOpen" accept=".json,.mosb,application/json" style="display:none">
     <div class="spacer"></div>
-    <button id="bDemo">Ring oscillator</button>
     <button id="bSim" class="go" title="open / close the simulation pane">Simulate</button>
     <button id="bExp" class="go" title="export the bus and pin connections that program the chip (connections.json)">Export Chip Connections</button>
   </div>
@@ -2408,39 +2407,6 @@ document.getElementById('bMir').onclick=flip;
 document.getElementById('bCopy').onclick=()=>{
   navigator.clipboard.writeText(document.getElementById('out').textContent);
   const b=document.getElementById('bCopy');b.textContent='Copied';setTimeout(()=>b.textContent='Copy',1200)};
-
-/* ---------- demo: 3-stage ring oscillator (16-16-8), as in the MOSbius docs ---- */
-document.getElementById('bDemo').onclick=()=>{
-  comps=[];segs=[];busOf={};alias={};nameOfPin={};nextNet=1;uid=1;
-  selIds.clear();selSegs.clear();
-  /* Three-stage ring oscillator, following the MOSbius reference design:
-     two 16x inverters plus a third stage built from the 4x pMOS/nMOS pair.
-     The 4x devices expose their sources, so chip_vdd / chip_vss are needed. */
-  comps.push(
-    {id:uid++,key:'inverter_a',   x:200, y:320},   // out (260,320)  inp(120,260) inn(120,380)
-    {id:uid++,key:'inverter_b',   x:520, y:320},   // inp(440,260) inn(440,380) out(580,320)
-    {id:uid++,key:'dp_pmos_4x_a', x:880, y:200},   // src(880,160) gate(840,200) drn(880,240) nw(920,200)
-    {id:uid++,key:'dp_nmos_4x_a', x:880, y:460},   // gate(840,460) drn(880,420) src(880,500) sub(920,460)
-    {id:uid++,key:'chip_vdd',     x:1180,y:120},   // pin (1180,160)
-    {id:uid++,key:'chip_vss',     x:1180,y:540});  // pin (1180,500)
-  const w=(x1,y1,x2,y2)=>segs.push({x1,y1,x2,y2});
-
-  // stage 1 out -> stage 2 split gates
-  w(260,320,360,320); w(360,260,360,380); w(360,260,440,260); w(360,380,440,380);
-  // stage 2 out -> stage 3 gates
-  w(580,320,700,320); w(700,200,700,460); w(700,200,840,200); w(700,460,840,460);
-  /* Stage 3 output, then feedback around to the stage 1 gates. The return bus
-     runs at x=40, clear of inverter A's body (its box starts at x=108), so the
-     feedback does not double back over the inp/inn leads it is driving. */
-  w(880,240,880,420); w(880,320,1000,320);
-  w(1000,320,1000,660); w(40,660,1000,660); w(40,260,40,660);
-  w(40,260,120,260); w(40,380,120,380);
-  // supply nets: pMOS source + nwell -> chip_vdd ; nMOS source + substrate -> chip_vss
-  w(880,160,1180,160); w(920,200,920,160);
-  w(880,500,1180,500); w(920,460,920,500);
-  commit(); fit();
-};
-
 
 /* ==========================================================================
    SIMULATION
