@@ -65,7 +65,12 @@
   .item .mult{font-family:var(--mono);font-size:10px;color:var(--dim)}
   .item.on .mult{color:#7FD6E5}
   #wrap{position:relative;overflow:hidden;background:var(--bg)}
-  svg{display:block;width:100%;height:100%}
+  /* Only the two full-bleed drawings fill their box. Left as a bare `svg`
+     selector this also hit the inline icon in the simulation bar, where a
+     cyclic 100% (shrink-to-fit button, indefinite height) is resolved one way
+     by Gecko and another by Blink — Chromium fell back to the 300x150 default
+     replaced size, squared off by the viewBox, and the glyph came out 150px. */
+  #cv,#pl{display:block;width:100%;height:100%}
   #hint{position:absolute;left:14px;bottom:11px;font-family:var(--mono);font-size:11px;
         color:var(--dim);pointer-events:none;line-height:1.7}
   #zoom{position:absolute;right:38px;bottom:11px;font-family:var(--mono);font-size:10.5px;
@@ -265,12 +270,14 @@
   /* the pane wears the same wordmark treatment as MOSbius up in the top bar */
   #spbar .brand{margin-right:4px;flex:0 0 auto}
   /* The icon has to sit in the same line box its text siblings get, or the button
-     comes out a few px shorter than Probe / Netlist / close: line-height:0 plus a
-     block-level svg makes the 11px glyph the entire content box, where the text
-     buttons get the ~15px strut of the 12px font. Keep the inherited line-height
-     and centre the glyph inside it instead. */
-  #spMax{padding:9px 9px}
-  #spMax svg{vertical-align:middle}
+     comes out a few px shorter than Probe / Netlist / close: with nothing but an
+     element inside it there is no text to raise the line box, so a zero-width space
+     supplies the strut of the 12px font and the glyph is centred in it. The size is
+     restated here because the width/height attributes on the svg lose to any rule
+     that sets those properties. */
+  #spMax{padding:6px 9px}
+  #spMax::before{content:"\200B"}
+  #spMax svg{display:inline-block;width:11px;height:11px;vertical-align:middle}
   #spStat{font-family:var(--mono);font-size:10.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #spbody{flex:1;display:flex;min-height:0}
   #spside{flex:0 0 var(--spsw,290px);width:var(--spsw,290px);
